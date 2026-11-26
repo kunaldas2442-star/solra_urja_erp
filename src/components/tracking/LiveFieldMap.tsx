@@ -80,13 +80,29 @@ export const LiveFieldMap: React.FC<LiveFieldMapProps> = ({
       statusEmoji = '🟡';
     }
 
-    const initials = employee.name
-      ? employee.name.split(' ').map((n) => n[0]).join('').slice(0, 2)
-      : 'FW';
+    const escapeHtml = (val: string) =>
+      String(val || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
-    const avatarHtml = employee.avatar
-      ? `<img src="${employee.avatar}" class="w-full h-full object-cover rounded-full" alt="" />`
-      : `<div class="w-full h-full flex items-center justify-center font-bold text-slate-800 text-[11px] bg-amber-100">👷</div>`;
+    const rawInitials = employee.name
+      ? employee.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+      : 'FW';
+    const safeInitials = escapeHtml(rawInitials || 'FW');
+    const safeName = escapeHtml(employee.name || 'Field Staff');
+
+    const rawAvatar = String(employee.avatar || '').trim();
+    const isExternalPublicAvatar =
+      /^https?:\/\//i.test(rawAvatar) &&
+      !rawAvatar.includes('/api/uploads/') &&
+      !rawAvatar.startsWith('/uploads/');
+
+    const avatarHtml = isExternalPublicAvatar
+      ? `<img src="${escapeHtml(rawAvatar)}" class="w-full h-full object-cover rounded-full" alt="" />`
+      : `<div class="w-full h-full flex items-center justify-center font-bold text-slate-800 text-[11px] bg-amber-100">${safeInitials}</div>`;
 
     const html = `
       <div class="relative group cursor-pointer -translate-x-1/2 -translate-y-1/2 select-none">
@@ -112,7 +128,7 @@ export const LiveFieldMap: React.FC<LiveFieldMapProps> = ({
 
         <!-- Employee Tooltip Label -->
         <div class="absolute top-11 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap shadow-md pointer-events-none flex items-center gap-1 border border-slate-700">
-          <span>${employee.name}</span>
+          <span>${safeName}</span>
           ${employee.speed && employee.speed > 0 ? `<span class="text-amber-400 text-[9px] font-normal">(${Math.round(employee.speed)} km/h)</span>` : ''}
         </div>
       </div>

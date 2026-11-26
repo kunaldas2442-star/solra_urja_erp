@@ -40,60 +40,55 @@ const DEFAULT_SETTINGS = {
   whatsAppStatus: 'SANDBOX_READY'
 };
 
-const SEED_STAFF: Array<{
+const SEED_DEMO_ACCOUNTS: Array<{
   id: string;
-  employeeCode: string;
+  employeeCode?: string;
   name: string;
   email: string;
-  aliasEmail?: string;
   password: string;
   role: string;
   department: string;
   designation: string;
   phone: string;
   isFieldWorker: boolean;
-  salaryMonthly: number;
 }> = [
-  { id: 'usr-admin-1', employeeCode: 'EMP-001', name: 'Vikram Patel', email: 'admin@solar.klyiatechnology.com', password: 'SolarAdmin@2026', role: 'Admin', department: 'Administration', designation: 'Lead Administrator', phone: '+91 98250 10001', isFieldWorker: false, salaryMonthly: 95000 },
-  { id: 'usr-salesmgr-1', employeeCode: 'EMP-002', name: 'Priya Verma', email: 'salesmanager@solar.klyiatechnology.com', password: 'SolarSales@2026', role: 'Sales Manager', department: 'Sales', designation: 'Sales Manager - C&I', phone: '+91 98250 10002', isFieldWorker: false, salaryMonthly: 65000 },
-  { id: 'usr-pm-1', employeeCode: 'EMP-003', name: 'Amit Sharma', email: 'projectmanager@solar.klyiatechnology.com', password: 'SolarProject@2026', role: 'Project Manager', department: 'Operations', designation: 'Senior Project Manager', phone: '+91 98250 10003', isFieldWorker: false, salaryMonthly: 72000 },
-  { id: 'usr-survey-1', employeeCode: 'EMP-004', name: 'Rajesh Kumar', email: 'surveyor@solar.klyiatechnology.com', aliasEmail: 'survey@solar.klyiatechnology.com', password: 'SolarSurvey@2026', role: 'Site Survey Engineer', department: 'Engineering', designation: 'Lead Site Survey Engineer', phone: '+91 98250 10004', isFieldWorker: true, salaryMonthly: 42000 },
-  { id: 'usr-insp-1', employeeCode: 'EMP-005', name: 'Hardik Shah', email: 'inspector@solar.klyiatechnology.com', aliasEmail: 'siteinspector@solar.klyiatechnology.com', password: 'SolarInspect@2026', role: 'Site Inspector', department: 'Engineering', designation: 'Senior Site Inspector & Auditor', phone: '+91 98250 10005', isFieldWorker: true, salaryMonthly: 45000 },
-  { id: 'usr-civil-1', employeeCode: 'EMP-006', name: 'Suresh Patel', email: 'civil@solar.klyiatechnology.com', aliasEmail: 'civilteam@solar.klyiatechnology.com', password: 'SolarCivil@2026', role: 'Civil Team', department: 'Civil', designation: 'Civil Foundations Lead', phone: '+91 98250 10006', isFieldWorker: true, salaryMonthly: 35000 },
-  { id: 'usr-elec-1', employeeCode: 'EMP-007', name: 'Ankit Joshi', email: 'electrical@solar.klyiatechnology.com', aliasEmail: 'electricalteam@solar.klyiatechnology.com', password: 'SolarElec@2026', role: 'Electrical Team', department: 'Electrical', designation: 'Senior Electrical Engineer', phone: '+91 98250 10007', isFieldWorker: true, salaryMonthly: 44000 },
-  { id: 'usr-inst-1', employeeCode: 'EMP-008', name: 'Manoj Tiwari', email: 'installation@solar.klyiatechnology.com', aliasEmail: 'installationteam@solar.klyiatechnology.com', password: 'SolarInstall@2026', role: 'Installation Team', department: 'Installation', designation: 'Module Installation Lead', phone: '+91 98250 10008', isFieldWorker: true, salaryMonthly: 37000 },
-  { id: 'usr-hr-1', employeeCode: 'EMP-009', name: 'Neha Gupta', email: 'hr@solar.klyiatechnology.com', aliasEmail: 'hrmanager@solar.klyiatechnology.com', password: 'SolarHr@2026', role: 'HR Manager', department: 'HR', designation: 'HR & Admin Manager', phone: '+91 98250 10009', isFieldWorker: false, salaryMonthly: 52000 },
-  { id: 'usr-acc-1', employeeCode: 'EMP-010', name: 'Sneha Kulkarni', email: 'accounts@solar.klyiatechnology.com', aliasEmail: 'accountant@solar.klyiatechnology.com', password: 'SolarAccounts@2026', role: 'Accountant', department: 'Finance', designation: 'Accounts Manager & Tally Specialist', phone: '+91 98250 10010', isFieldWorker: false, salaryMonthly: 55000 },
-  { id: 'usr-sales-1', employeeCode: 'EMP-011', name: 'Rahul Mehta', email: 'sales@solar.klyiatechnology.com', password: 'SolarSalesExec@2026', role: 'Sales Executive', department: 'Sales', designation: 'Solar Sales Executive', phone: '+91 98250 10011', isFieldWorker: false, salaryMonthly: 38000 },
-  { id: 'usr-struct-1', employeeCode: 'EMP-012', name: 'Dinesh Yadav', email: 'structure@solar.klyiatechnology.com', password: 'SolarStruct@2026', role: 'Structure Team', department: 'Structure', designation: 'Structure Fabrication Lead', phone: '+91 98250 10012', isFieldWorker: true, salaryMonthly: 36000 },
-  { id: 'usr-srv-1', employeeCode: 'EMP-013', name: 'Rohit Verma', email: 'service@solar.klyiatechnology.com', password: 'SolarService@2026', role: 'Service Manager', department: 'Service', designation: 'Service Manager', phone: '+91 98250 10013', isFieldWorker: false, salaryMonthly: 48000 },
-  { id: 'usr-tech-1', employeeCode: 'EMP-014', name: 'Ketan Solanki', email: 'technician@solar.klyiatechnology.com', password: 'SolarTech@2026', role: 'Technician', department: 'Service', designation: 'Field Service Technician', phone: '+91 98250 10014', isFieldWorker: true, salaryMonthly: 32000 }
+  { id: 'usr-admin-1', employeeCode: 'EMP-001', name: 'Administrator', email: 'admin@solar.klyiatechnology.com', password: 'SolarAdmin@2026', role: 'Admin', department: 'Administration', designation: 'System Administrator', phone: '', isFieldWorker: false },
+  { id: 'usr-salesmgr-1', employeeCode: 'EMP-002', name: 'Sales Manager', email: 'salesmanager@solar.klyiatechnology.com', password: 'SolarSales@2026', role: 'Sales Manager', department: 'Sales', designation: 'Sales Manager', phone: '', isFieldWorker: false },
+  { id: 'usr-pm-1', employeeCode: 'EMP-003', name: 'Project Manager', email: 'projectmanager@solar.klyiatechnology.com', password: 'SolarProject@2026', role: 'Project Manager', department: 'Operations', designation: 'Project Manager', phone: '', isFieldWorker: false },
+  { id: 'usr-survey-1', employeeCode: 'EMP-004', name: 'Site Surveyor', email: 'surveyor@solar.klyiatechnology.com', password: 'SolarSurvey@2026', role: 'Site Survey Engineer', department: 'Engineering', designation: 'Site Surveyor', phone: '', isFieldWorker: true },
+  { id: 'usr-insp-1', employeeCode: 'EMP-005', name: 'Site Inspector', email: 'inspector@solar.klyiatechnology.com', password: 'SolarInspect@2026', role: 'Site Inspector', department: 'Engineering', designation: 'Site Inspector', phone: '', isFieldWorker: true },
+  { id: 'usr-civil-1', employeeCode: 'EMP-006', name: 'Civil Team', email: 'civil@solar.klyiatechnology.com', password: 'SolarCivil@2026', role: 'Civil Team', department: 'Civil', designation: 'Civil Team Lead', phone: '', isFieldWorker: true },
+  { id: 'usr-elec-1', employeeCode: 'EMP-007', name: 'Electrical Team', email: 'electrical@solar.klyiatechnology.com', password: 'SolarElec@2026', role: 'Electrical Team', department: 'Electrical', designation: 'Electrical Team Lead', phone: '', isFieldWorker: true },
+  { id: 'usr-inst-1', employeeCode: 'EMP-008', name: 'Installation Team', email: 'installation@solar.klyiatechnology.com', password: 'SolarInstall@2026', role: 'Installation Team', department: 'Installation', designation: 'Installation Team Lead', phone: '', isFieldWorker: true },
+  { id: 'usr-hr-1', employeeCode: 'EMP-009', name: 'HR Manager', email: 'hr@solar.klyiatechnology.com', password: 'SolarHr@2026', role: 'HR Manager', department: 'HR', designation: 'HR Manager', phone: '', isFieldWorker: false },
+  { id: 'usr-acc-1', employeeCode: 'EMP-010', name: 'Accounts Manager', email: 'accounts@solar.klyiatechnology.com', password: 'SolarAccounts@2026', role: 'Accountant', department: 'Finance', designation: 'Accounts Manager', phone: '', isFieldWorker: false },
+  { id: 'usr-cust-demo-1', name: 'Customer Demo Account', email: 'customer@solar.klyiatechnology.com', password: 'SolarCustomer@2026', role: 'Customer', department: 'Customer', designation: 'Customer Portal Demo', phone: '', isFieldWorker: false }
 ];
 
 const DEFAULT_COA = [
-  { id: 'acc-1010', code: '1010', name: 'Cash in Hand (Petty Cash)', accountType: 'ASSET', subType: 'Cash', isSystem: true, isActive: true, openingBalance: 50000, currentBalance: 50000, description: 'Physical office & site petty cash register' },
-  { id: 'acc-1020', code: '1020', name: 'Primary Current Bank Account', accountType: 'ASSET', subType: 'Bank', isSystem: true, isActive: true, openingBalance: 1250000, currentBalance: 1750000, description: 'Primary operating corporate bank account' },
-  { id: 'acc-1100', code: '1100', name: 'Accounts Receivable (Sundry Debtors)', accountType: 'ASSET', subType: 'Current Asset', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 450000, description: 'Customer EPC milestone & sales receivables' },
-  { id: 'acc-1150', code: '1150', name: 'Input GST Credit (ITC Receivable)', accountType: 'ASSET', subType: 'Tax Asset', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 45000, description: 'Eligible CGST/SGST/IGST Input Tax Credit on purchases' },
-  { id: 'acc-1200', code: '1200', name: 'Solar Inventory & Stock-in-Hand', accountType: 'ASSET', subType: 'Inventory', isSystem: true, isActive: true, openingBalance: 850000, currentBalance: 850000, description: 'Modules, inverters, BOS & warehouse stock valuation' },
-  { id: 'acc-1500', code: '1500', name: 'Fixed Assets - Plant, Tools & Vehicles', accountType: 'ASSET', subType: 'Fixed Asset', isSystem: true, isActive: true, openingBalance: 400000, currentBalance: 400000, description: 'Capitalized tools, site vehicles, office equipment' },
+  { id: 'acc-1010', code: '1010', name: 'Cash in Hand (Petty Cash)', accountType: 'ASSET', subType: 'Cash', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Physical office & site petty cash register' },
+  { id: 'acc-1020', code: '1020', name: 'Primary Current Bank Account', accountType: 'ASSET', subType: 'Bank', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Primary operating corporate bank account' },
+  { id: 'acc-1100', code: '1100', name: 'Accounts Receivable (Sundry Debtors)', accountType: 'ASSET', subType: 'Current Asset', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Customer EPC milestone & sales receivables' },
+  { id: 'acc-1150', code: '1150', name: 'Input GST Credit (ITC Receivable)', accountType: 'ASSET', subType: 'Tax Asset', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Eligible CGST/SGST/IGST Input Tax Credit on purchases' },
+  { id: 'acc-1200', code: '1200', name: 'Solar Inventory & Stock-in-Hand', accountType: 'ASSET', subType: 'Inventory', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Modules, inverters, BOS & warehouse stock valuation' },
+  { id: 'acc-1500', code: '1500', name: 'Fixed Assets - Plant, Tools & Vehicles', accountType: 'ASSET', subType: 'Fixed Asset', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Capitalized tools, site vehicles, office equipment' },
   { id: 'acc-1590', code: '1590', name: 'Accumulated Depreciation', accountType: 'ASSET', subType: 'Contra Asset', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Cumulative depreciation on capitalized fixed assets' },
-  { id: 'acc-2010', code: '2010', name: 'Accounts Payable (Sundry Creditors)', accountType: 'LIABILITY', subType: 'Current Liability', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 180000, description: 'Vendor bills & supplier payables' },
-  { id: 'acc-2100', code: '2100', name: 'Output GST Payable', accountType: 'LIABILITY', subType: 'Tax Liability', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 90000, description: 'CGST/SGST/IGST collected on sales invoices' },
+  { id: 'acc-2010', code: '2010', name: 'Accounts Payable (Sundry Creditors)', accountType: 'LIABILITY', subType: 'Current Liability', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Vendor bills & supplier payables' },
+  { id: 'acc-2100', code: '2100', name: 'Output GST Payable', accountType: 'LIABILITY', subType: 'Tax Liability', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'CGST/SGST/IGST collected on sales invoices' },
   { id: 'acc-2150', code: '2150', name: 'TDS Payable', accountType: 'LIABILITY', subType: 'Tax Liability', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Tax deducted at source pending government challan deposit' },
   { id: 'acc-2200', code: '2200', name: 'Payroll & Salary Payable', accountType: 'LIABILITY', subType: 'Current Liability', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Accrued monthly employee salaries & reimbursements' },
   { id: 'acc-2300', code: '2300', name: 'Customer Advance & Booking Deposits', accountType: 'LIABILITY', subType: 'Current Liability', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Unbilled milestone advances received from customers' },
-  { id: 'acc-3010', code: '3010', name: 'Share Capital / Owner Equity', accountType: 'EQUITY', subType: 'Capital', isSystem: true, isActive: true, openingBalance: 2550000, currentBalance: 2550000, description: 'Paid-up share capital and owner equity' },
+  { id: 'acc-3010', code: '3010', name: 'Share Capital / Owner Equity', accountType: 'EQUITY', subType: 'Capital', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Paid-up share capital and owner equity' },
   { id: 'acc-3020', code: '3020', name: 'Retained Earnings & Reserves', accountType: 'EQUITY', subType: 'Reserves', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Accumulated prior-period earnings' },
-  { id: 'acc-4010', code: '4010', name: 'Solar EPC Installation Revenue', accountType: 'REVENUE', subType: 'Operating Revenue', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 950000, description: 'Revenue from rooftop & ground-mount EPC contracts' },
-  { id: 'acc-4020', code: '4020', name: 'AMC & Service Maintenance Revenue', accountType: 'REVENUE', subType: 'Operating Revenue', isSystem: true, openingBalance: 0, currentBalance: 25000, description: 'Annual maintenance contracts & paid service visits' },
+  { id: 'acc-4010', code: '4010', name: 'Solar EPC Installation Revenue', accountType: 'REVENUE', subType: 'Operating Revenue', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Revenue from rooftop & ground-mount EPC contracts' },
+  { id: 'acc-4020', code: '4020', name: 'AMC & Service Maintenance Revenue', accountType: 'REVENUE', subType: 'Operating Revenue', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Annual maintenance contracts & paid service visits' },
   { id: 'acc-4030', code: '4030', name: 'Vendor Sales & Equipment Trading Revenue', accountType: 'REVENUE', subType: 'Operating Revenue', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'B2B solar equipment sales to vendors/partners' },
   { id: 'acc-4090', code: '4090', name: 'Other Income / Asset Disposal Gain-Loss', accountType: 'REVENUE', subType: 'Other Income', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Miscellaneous income and fixed asset disposal variance' },
-  { id: 'acc-5010', code: '5010', name: 'Cost of Solar Equipment & Materials (COGS)', accountType: 'EXPENSE', subType: 'Direct Cost', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 250000, description: 'PV panels, inverters, structures, cables & BOS procurement' },
-  { id: 'acc-5020', code: '5020', name: 'Site Execution & Subcontractor Costs', accountType: 'EXPENSE', subType: 'Direct Cost', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 45000, description: 'Civil, mounting, electrical labor & net-metering permits' },
+  { id: 'acc-5010', code: '5010', name: 'Cost of Solar Equipment & Materials (COGS)', accountType: 'EXPENSE', subType: 'Direct Cost', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'PV panels, inverters, structures, cables & BOS procurement' },
+  { id: 'acc-5020', code: '5020', name: 'Site Execution & Subcontractor Costs', accountType: 'EXPENSE', subType: 'Direct Cost', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Civil, mounting, electrical labor & net-metering permits' },
   { id: 'acc-5030', code: '5030', name: 'Salaries, Wages & Payroll Expense', accountType: 'EXPENSE', subType: 'Operating Expense', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Employee monthly salaries, overtime & incentives' },
-  { id: 'acc-5040', code: '5040', name: 'Travel, Fuel & Field Operations Expense', accountType: 'EXPENSE', subType: 'Operating Expense', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 12000, description: 'Site travel, logistics, fuel & employee reimbursements' },
-  { id: 'acc-5050', code: '5050', name: 'Office Rent, Utilities & Admin Overheads', accountType: 'EXPENSE', subType: 'Operating Expense', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 18000, description: 'Rent, electricity, software, marketing & general overheads' },
+  { id: 'acc-5040', code: '5040', name: 'Travel, Fuel & Field Operations Expense', accountType: 'EXPENSE', subType: 'Operating Expense', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Site travel, logistics, fuel & employee reimbursements' },
+  { id: 'acc-5050', code: '5050', name: 'Office Rent, Utilities & Admin Overheads', accountType: 'EXPENSE', subType: 'Operating Expense', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Rent, electricity, software, marketing & general overheads' },
   { id: 'acc-5060', code: '5060', name: 'Depreciation & Amortization Expense', accountType: 'EXPENSE', subType: 'Non-Cash Expense', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'SLM/WDV periodic fixed asset depreciation' },
   { id: 'acc-5090', code: '5090', name: 'Bank Charges & Loss on Asset Disposal', accountType: 'EXPENSE', subType: 'Other Expense', isSystem: true, isActive: true, openingBalance: 0, currentBalance: 0, description: 'Bank transaction fees & write-off losses' }
 ];
@@ -133,6 +128,7 @@ class InMemoryDatabaseStore {
   private emailSettings: EmailSettingsRecord | null = null;
   private aclConfig: Record<string, any> = JSON.parse(JSON.stringify(DEFAULT_SYSTEM_ACL_CONFIG));
   private aclAuditLogs: any[] = [];
+  private systemAuditLogs: any[] = [];
   private workforceLocations: Map<string, any> = new Map();
 
   // Accounting state
@@ -182,635 +178,92 @@ class InMemoryDatabaseStore {
 
   private seedInitialData(): void {
     const ts = nowIso();
-    const today = todayStr();
-    const customerDemoHash = bcrypt.hashSync('SolarCustomer@2026', 10);
 
-    // 1. Seed Users & Employees with Solar Urja ERP demo credentials
-    this.users = [];
-    this.employees = [];
-    for (const s of SEED_STAFF) {
-      const staffHash = bcrypt.hashSync(s.password, 10);
-      this.users.push({
-        id: s.id,
-        name: s.name,
-        email: s.email,
-        password: staffHash,
-        role: s.role,
-        phone: s.phone,
-        department: s.department,
-        designation: s.designation,
-        employeeId: s.employeeCode,
-        isFieldWorker: s.isFieldWorker,
-        status: 'ACTIVE',
-        createdAt: ts,
-        updatedAt: ts
-      });
-
-      if (s.aliasEmail) {
-        this.users.push({
-          id: `${s.id}-alias`,
-          name: s.name,
-          email: s.aliasEmail,
-          password: staffHash,
-          role: s.role,
-          phone: s.phone,
-          department: s.department,
-          designation: s.designation,
-          employeeId: s.employeeCode,
-          isFieldWorker: s.isFieldWorker,
-          status: 'ACTIVE',
-          createdAt: ts,
-          updatedAt: ts
-        });
-      }
-
-      this.employees.push({
-        id: s.id,
-        employeeCode: s.employeeCode,
-        name: s.name,
-        photoUrl: '',
-        documents: [],
-        department: s.department,
-        designation: s.designation,
-        phone: s.phone,
-        email: s.email,
-        joiningDate: '2025-04-01',
-        salaryMonthly: s.salaryMonthly,
-        salary: s.salaryMonthly,
-        status: 'ACTIVE',
-        currentSiteLocation: s.isFieldWorker ? 'Bhilai Sector-10 Site' : 'Bhilai Head Office',
-        esicNumber: '',
-        bankAccountNumber: '',
-        bankName: 'HDFC Bank',
-        ifscCode: 'HDFC0001234',
-        emergencyContactPerson: '',
-        emergencyContactNumber: '',
-        loginEnabled: true,
-        authUid: s.id,
-        systemRole: s.role,
-        assignedRole: s.role,
-        isFieldWorker: s.isFieldWorker,
-        accountStatus: 'ACTIVE',
-        accountCreatedAt: ts,
-        accountCreatedBy: 'System',
-        createdAt: ts,
-        updatedAt: ts
-      });
-    }
-
-    // Seed Customer User
-    this.users.push({
-      id: 'usr-cust-abc-1',
-      name: 'ABC Industries Ltd.',
-      email: 'customer@solar.klyiatechnology.com',
-      password: customerDemoHash,
-      role: 'Customer',
-      phone: '+91 98261 44556',
-      department: 'Customer',
-      designation: 'Client Representative',
-      customerId: 'cust-abc-1',
-      isFieldWorker: false,
+    // Seed ONLY the 11 defined Solar Urja ERP demo login accounts (zero dummy business records)
+    this.users = SEED_DEMO_ACCOUNTS.map(acc => ({
+      id: acc.id,
+      name: acc.name,
+      email: acc.email,
+      password: bcrypt.hashSync(acc.password, 10),
+      role: acc.role,
+      phone: acc.phone,
+      department: acc.department,
+      designation: acc.designation,
+      ...(acc.employeeCode ? { employeeId: acc.employeeCode } : {}),
+      isFieldWorker: acc.isFieldWorker,
       status: 'ACTIVE',
       createdAt: ts,
       updatedAt: ts
-    });
+    }));
 
-    // 2. Seed Customers
-    this.customers = [
-      {
-        id: 'cust-abc-1',
-        customerCode: 'CUST-1001',
-        name: 'ABC Industries Ltd.',
-        companyName: 'ABC Industries Pvt. Ltd.',
-        customerType: 'Commercial',
-        phone: '+91 98261 44556',
-        email: 'customer@solar.klyiatechnology.com',
-        password: customerDemoHash,
-        siteAddress: 'Plot 42, Heavy Industrial Area, Hathkhoj, Bhilai',
-        city: 'Bhilai',
-        state: 'Chhattisgarh',
-        pincode: '490026',
-        gstNumber: '22AABCA1234D1Z5',
-        electricityConsumerNo: 'CSPDCL-10045892',
-        sanctionedLoadKw: 120,
-        status: 'ACTIVE',
-        activeProjectId: 'proj-1001',
-        createdAt: ts,
-        updatedAt: ts
-      },
-      {
-        id: 'cust-rameshwar-2',
-        customerCode: 'CUST-1002',
-        name: 'Rameshwar Patel',
-        companyName: '',
-        customerType: 'Residential',
-        phone: '+91 98261 77889',
-        email: 'rameshwar.patel@example.com',
-        password: customerDemoHash,
-        siteAddress: 'House 18, Smriti Nagar, Bhilai',
-        city: 'Bhilai',
-        state: 'Chhattisgarh',
-        pincode: '490020',
-        gstNumber: '',
-        electricityConsumerNo: 'CSPDCL-10078123',
-        sanctionedLoadKw: 8,
-        status: 'ACTIVE',
-        activeProjectId: 'proj-1002',
-        createdAt: ts,
-        updatedAt: ts
-      }
-    ];
+    // Zero business records on initial boot
+    this.employees = [];
+    this.employeeDocs.clear();
+    this.customers = [];
+    this.leads = [];
+    this.projects = [];
+    this.warehouses = [];
+    this.vendors = [];
+    this.products = [];
+    this.purchaseOrders = [];
+    this.boms = [];
+    this.salesInvoices = [];
+    this.vendorSalesInvoices = [];
+    this.salesReturns = [];
+    this.purchaseReturns = [];
+    this.stockMovements = [];
+    this.stockAudits = [];
+    this.payments = [];
+    this.expenses = [];
+    this.quotations = [];
+    this.surveys = [];
+    this.attendance = [];
+    this.payslips = [];
+    this.holidays = [];
+    this.leaveRequests = [];
+    this.leaveBalances = [];
+    this.serviceTickets = [];
+    this.serviceTicketHistory = [];
+    this.amcContracts = [];
+    this.notifications = [];
 
-    // 3. Seed Projects with 14 Standard Workflow Stages
-    this.projects = [
-      {
-        id: 'proj-1001',
-        projectCode: 'PRJ-2026-001',
-        customerId: 'cust-abc-1',
-        customerName: 'ABC Industries Ltd.',
-        title: 'ABC Industries 50 kW On-Grid Industrial Rooftop',
-        capacityKw: 50,
-        totalValue: 2250000,
-        receivedInflow: null,
-        status: 'INSTALLATION',
-        currentStageKey: 'solar_installation',
-        completionPercentage: 54,
-        progressPercentage: 54,
-        projectManagerId: 'usr-pm-1',
-        projectManagerName: 'Amit Sharma',
-        siteAddress: 'Plot 42, Heavy Industrial Area, Hathkhoj, Bhilai',
-        city: 'Bhilai',
-        inverterModel: 'Sungrow SG50CX-P2 (50kW)',
-        panelModel: 'Waaree 550Wp Mono PERC Bifacial',
-        structureType: 'Elevated HDG Industrial Truss',
-        startDate: '2026-10-15',
-        expectedCompletionDate: '2026-12-20',
-        notes: 'Priority C&I industrial rooftop installation with net-metering.',
-        assignments: [
-          { role: 'Project Manager', employeeId: 'usr-pm-1', employeeName: 'Amit Sharma', assignedAt: ts },
-          { role: 'Site Survey Engineer', employeeId: 'usr-survey-1', employeeName: 'Rajesh Kumar', assignedAt: ts },
-          { role: 'Installation Team', employeeId: 'usr-inst-1', employeeName: 'Manoj Tiwari', assignedAt: ts },
-          { role: 'Electrical Team', employeeId: 'usr-elec-1', employeeName: 'Ankit Joshi', assignedAt: ts }
-        ],
-        stages: buildStandardWorkflowStages('proj-1001', 50, '68_PERCENT'),
-        createdAt: ts,
-        updatedAt: ts
-      },
-      {
-        id: 'proj-1002',
-        projectCode: 'PRJ-2026-002',
-        customerId: 'cust-rameshwar-2',
-        customerName: 'Rameshwar Patel',
-        title: 'Rameshwar Patel 5 kW PM Surya Ghar Residential',
-        capacityKw: 5,
-        totalValue: 285000,
-        receivedInflow: null,
-        status: 'SURVEY',
-        currentStageKey: 'site_survey',
-        completionPercentage: 14,
-        progressPercentage: 14,
-        projectManagerId: 'usr-pm-1',
-        projectManagerName: 'Amit Sharma',
-        siteAddress: 'House 18, Smriti Nagar, Bhilai',
-        city: 'Bhilai',
-        inverterModel: 'Growatt MIN 5000TL-X (5kW)',
-        panelModel: 'Adani 540Wp Mono PERC',
-        structureType: 'Elevated GI Rooftop Structure',
-        startDate: '2026-11-10',
-        expectedCompletionDate: '2026-12-30',
-        notes: 'Residential subsidy application submitted.',
-        assignments: [
-          { role: 'Project Manager', employeeId: 'usr-pm-1', employeeName: 'Amit Sharma', assignedAt: ts },
-          { role: 'Site Survey Engineer', employeeId: 'usr-survey-1', employeeName: 'Rajesh Kumar', assignedAt: ts }
-        ],
-        stages: buildStandardWorkflowStages('proj-1002', 5, 'STAGE_2'),
-        createdAt: ts,
-        updatedAt: ts
-      }
-    ];
-
-    // 4. Seed Leads
-    this.leads = [
-      {
-        id: 'lead-1001',
-        customerName: 'Maheshwari Cold Storage',
-        companyName: 'Maheshwari Agro Foods',
-        phone: '+91 98271 33445',
-        email: 'maheshwari.agro@example.com',
-        address: 'Industrial Estate, Urla, Raipur',
-        city: 'Raipur',
-        solarCapacityKw: 100,
-        estimatedValue: 4200000,
-        source: 'Referral',
-        assignedSalespersonId: 'usr-salesmgr-1',
-        assignedSalespersonName: 'Priya Verma',
-        status: 'PROPOSAL SENT',
-        notes: 'High daytime refrigeration load; ideal for 100kW on-grid.',
-        nextFollowUpDate: today,
-        createdAt: ts,
-        updatedAt: ts
-      },
-      {
-        id: 'lead-1002',
-        customerName: 'Dr. Anjali Deshmukh',
-        companyName: 'Deshmukh Diagnostics',
-        phone: '+91 94252 66778',
-        email: 'anjali.deshmukh@example.com',
-        address: 'Civic Centre, Bhilai',
-        city: 'Bhilai',
-        solarCapacityKw: 15,
-        estimatedValue: 750000,
-        source: 'Website',
-        assignedSalespersonId: 'usr-sales-1',
-        assignedSalespersonName: 'Rahul Mehta',
-        status: 'SITE SURVEY SCHEDULED',
-        notes: 'Needs hybrid backup support for diagnostic lab.',
-        nextFollowUpDate: today,
-        createdAt: ts,
-        updatedAt: ts
-      }
-    ];
-
-    // 5. Seed Warehouses & Products & Vendors
-    this.warehouses = [
-      {
-        id: 'wh-bhilai-1',
-        code: 'WH-BHL-01',
-        name: 'Bhilai Central Solar Depot',
-        location: 'Hathkhoj Industrial Area, Bhilai',
-        city: 'Bhilai',
-        state: 'Chhattisgarh',
-        managerName: 'Amit Sharma',
-        phone: '+91 98250 10004',
-        email: 'depot.bhilai@solar.klyiatechnology.com',
-        capacitySqFt: 18000,
-        status: 'ACTIVE',
-        isDefault: true,
-        notes: 'Primary EPC equipment & module staging warehouse',
-        createdAt: ts,
-        updatedAt: ts
-      },
-      {
-        id: 'wh-raipur-2',
-        code: 'WH-RPR-02',
-        name: 'Raipur Logistics Hub',
-        location: 'Urla Industrial Complex, Raipur',
-        city: 'Raipur',
-        state: 'Chhattisgarh',
-        managerName: 'Manoj Tiwari',
-        phone: '+91 98250 10010',
-        email: 'depot.raipur@solar.klyiatechnology.com',
-        capacitySqFt: 12000,
-        status: 'ACTIVE',
-        isDefault: false,
-        notes: 'Regional hub for C&I projects',
-        createdAt: ts,
-        updatedAt: ts
-      }
-    ];
-
-    this.vendors = [
-      {
-        id: 'ven-waaree-1',
-        vendorCode: 'VND-001',
-        name: 'Waaree Energies Authorized Dist.',
-        contactPerson: 'Sandeep Shah',
-        phone: '+91 98201 55667',
-        email: 'dispatch@waareedist.example.com',
-        address: 'GIDC Sachin, Surat',
-        city: 'Surat',
-        state: 'Gujarat',
-        gstNumber: '24AAACW1234F1Z2',
-        panNumber: 'AAACW1234F',
-        paymentTerms: '30 Days Net',
-        category: 'PV Modules',
-        rating: 4.9,
-        status: 'ACTIVE',
-        createdAt: ts,
-        updatedAt: ts
-      },
-      {
-        id: 'ven-sungrow-2',
-        vendorCode: 'VND-002',
-        name: 'Sungrow Power India Distributors',
-        contactPerson: 'Nikhil Rao',
-        phone: '+91 98111 77889',
-        email: 'orders@sungrowdist.example.com',
-        address: 'Cyber Hub Phase II, Gurugram',
-        city: 'Gurugram',
-        state: 'Haryana',
-        gstNumber: '06AAACS5678G1Z9',
-        panNumber: 'AAACS5678G',
-        paymentTerms: '15 Days Net',
-        category: 'Inverters & BOS',
-        rating: 4.8,
-        status: 'ACTIVE',
-        createdAt: ts,
-        updatedAt: ts
-      }
-    ];
-
-    this.products = [
-      {
-        id: 'prod-1',
-        sku: 'MOD-WAR-550BF',
-        name: 'Waaree 550Wp Mono PERC Bifacial PV Module',
-        category: 'Solar Panels',
-        brand: 'Waaree',
-        hsnCode: '85414300',
-        unit: 'NOS',
-        unitPrice: 13200,
-        sellingPrice: 15500,
-        gstRate: 12,
-        stockQuantity: 180,
-        reorderLevel: 40,
-        warehouseId: 'wh-bhilai-1',
-        warehouseName: 'Bhilai Central Solar Depot',
-        warehouseStocks: { 'wh-bhilai-1': 140, 'wh-raipur-2': 40 },
-        preferredVendorId: 'ven-waaree-1',
-        preferredVendorName: 'Waaree Energies Authorized Dist.',
-        status: 'ACTIVE',
-        createdAt: ts,
-        updatedAt: ts
-      },
-      {
-        id: 'prod-2',
-        sku: 'INV-SUN-50KW',
-        name: 'Sungrow SG50CX-P2 50kW On-Grid String Inverter',
-        category: 'Inverters',
-        brand: 'Sungrow',
-        hsnCode: '85044090',
-        unit: 'NOS',
-        unitPrice: 165000,
-        sellingPrice: 195000,
-        gstRate: 12,
-        stockQuantity: 6,
-        reorderLevel: 2,
-        warehouseId: 'wh-bhilai-1',
-        warehouseName: 'Bhilai Central Solar Depot',
-        warehouseStocks: { 'wh-bhilai-1': 4, 'wh-raipur-2': 2 },
-        preferredVendorId: 'ven-sungrow-2',
-        preferredVendorName: 'Sungrow Power India Distributors',
-        status: 'ACTIVE',
-        createdAt: ts,
-        updatedAt: ts
-      },
-      {
-        id: 'prod-3',
-        sku: 'BOS-ACDB-50KW',
-        name: '50kW 3-Phase ACDB & Surge Protection Panel',
-        category: 'BOS & Electrical',
-        brand: 'L&T / Schneider',
-        hsnCode: '85371000',
-        unit: 'SET',
-        unitPrice: 28000,
-        sellingPrice: 35000,
-        gstRate: 18,
-        stockQuantity: 12,
-        reorderLevel: 4,
-        warehouseId: 'wh-bhilai-1',
-        warehouseName: 'Bhilai Central Solar Depot',
-        warehouseStocks: { 'wh-bhilai-1': 10, 'wh-raipur-2': 2 },
-        preferredVendorId: 'ven-sungrow-2',
-        preferredVendorName: 'Sungrow Power India Distributors',
-        status: 'ACTIVE',
-        createdAt: ts,
-        updatedAt: ts
-      }
-    ];
-
-    // 6. Seed Payments, Expenses, Quotations, Surveys, Tickets, AMC, Holidays, Notifications
-    this.payments = [
-      {
-        id: 'pay-1001',
-        receiptNumber: 'RCPT-2026-001',
-        projectId: 'proj-1001',
-        projectTitle: 'ABC Industries 50 kW On-Grid Industrial Rooftop',
-        customerId: 'cust-abc-1',
-        customerName: 'ABC Industries Ltd.',
-        milestone: 'Advance Booking & Engineering (40%)',
-        amount: 900000,
-        status: 'PAID',
-        dueDate: '2026-10-18',
-        paidDate: '2026-10-18',
-        paymentMode: 'Bank NEFT/RTGS',
-        referenceNo: 'UTR202610189981',
-        notes: 'Initial advance milestone received',
-        createdAt: ts
-      },
-      {
-        id: 'pay-1002',
-        receiptNumber: 'RCPT-2026-002',
-        projectId: 'proj-1001',
-        projectTitle: 'ABC Industries 50 kW On-Grid Industrial Rooftop',
-        customerId: 'cust-abc-1',
-        customerName: 'ABC Industries Ltd.',
-        milestone: 'Material Dispatch & Mounting (40%)',
-        amount: 900000,
-        status: 'PENDING',
-        dueDate: '2026-11-30',
-        paidDate: null,
-        paymentMode: 'Bank NEFT/RTGS',
-        referenceNo: '',
-        notes: 'Due upon solar panel delivery at site',
-        createdAt: ts
-      }
-    ];
-
-    this.expenses = [
-      {
-        id: 'exp-1001',
-        voucherNumber: 'EXP-2026-001',
-        projectId: 'proj-1001',
-        projectTitle: 'ABC Industries 50 kW On-Grid Industrial Rooftop',
-        category: 'Site Execution & Labor',
-        description: 'Crane & hoisting charges for 50kW structure & modules',
-        amount: 18500,
-        gstAmount: 0,
-        itcEligible: false,
-        date: '2026-11-05',
-        expenseDate: '2026-11-05',
-        paymentMode: 'Bank NEFT/RTGS',
-        vendorName: 'Bhilai Crane Services',
-        status: 'PAID',
-        expenseType: 'DIRECT_EXPENSE',
-        createdAt: ts
-      }
-    ];
-
-    this.quotations = [
-      {
-        id: 'qtn-1001',
-        quotationNumber: 'RSP-QTN-2026-27-0010',
-        leadId: 'lead-1001',
-        customerId: 'cust-abc-1',
-        customerName: 'Maheshwari Cold Storage',
-        customerEmail: 'maheshwari.agro@example.com',
-        customerPhone: '+91 98271 33445',
-        siteAddress: 'Industrial Estate, Urla, Raipur',
-        city: 'Raipur',
-        systemCapacityKw: 100,
-        systemType: 'On-Grid Commercial Rooftop',
-        panelBrand: 'Waaree 550Wp Mono PERC Bifacial',
-        inverterBrand: 'Sungrow 100kW String Inverter',
-        structureType: 'HDG Elevated Structure',
-        baseAmount: 3750000,
-        gstAmount: 450000,
-        totalAmount: 4200000,
-        subsidyAmount: 0,
-        netPayable: 4200000,
-        validityDays: 15,
-        status: 'SENT',
-        quotationDate: today,
-        createdAt: ts,
-        updatedAt: ts
-      }
-    ];
-
-    this.surveys = [
-      {
-        id: 'srv-1001',
-        projectId: 'proj-1002',
-        customerId: 'cust-rameshwar-2',
-        customerName: 'Rameshwar Patel',
-        surveyorId: 'usr-survey-1',
-        surveyorName: 'Rajesh Kumar',
-        surveyDate: '2026-11-12',
-        roofType: 'RCC Flat Roof',
-        roofAreaSqFt: 650,
-        orientation: 'True South (180°)',
-        tiltAngle: 21,
-        shadingIssues: 'Minimal morning shadow on NE parapet (cleared by elevated structure)',
-        sanctionedLoadKw: 8,
-        recommendedCapacityKw: 5,
-        gpsCoordinates: '21.1938, 81.3509',
-        status: 'APPROVED',
-        notes: 'Suitable for 5kW elevated GI rooftop plant.',
-        createdAt: ts,
-        updatedAt: ts
-      }
-    ];
-
-    this.serviceTickets = [
-      {
-        id: 'tkt-1001',
-        ticketId: 'SRV-2026-001',
-        customerId: 'cust-abc-1',
-        customerName: 'ABC Industries Ltd.',
-        projectId: 'proj-1001',
-        projectTitle: 'ABC Industries 50 kW On-Grid Industrial Rooftop',
-        issue: 'Pre-commissioning string VOC balance verification & earthing test',
-        category: 'Inspection & Testing',
-        priority: 'MEDIUM',
-        assignedTechnicianId: 'usr-tech-1',
-        assignedTechnicianName: 'Ketan Solanki',
-        status: 'ASSIGNED',
-        scheduledDate: today,
-        notes: 'Verify earth pit resistance < 2 Ohms before DISCOM inspection.',
-        technicianRemarks: 'Scheduled site visit with digital earth tester.',
-        resolutionDetails: '',
-        photos: [],
-        createdAt: ts,
-        updatedAt: ts
-      }
-    ];
-
-    this.amcContracts = [
-      {
-        id: 'amc-1001',
-        amcCode: 'AMC-2026-001',
-        customerId: 'cust-abc-1',
-        customerName: 'ABC Industries Ltd.',
-        projectId: 'proj-1001',
-        projectTitle: 'ABC Industries 50 kW On-Grid Industrial Rooftop',
-        planName: 'Comprehensive C&I Annual O&M + Cleaning',
-        startDate: '2026-12-01',
-        endDate: '2027-11-30',
-        renewalDate: '2027-11-15',
-        annualAmount: 48000,
-        visitsCompleted: 0,
-        totalVisits: 4,
-        status: 'ACTIVE',
-        createdAt: ts
-      }
-    ];
-
-    this.holidays = [
-      { id: 'hol-1', name: 'Republic Day', date: '2026-01-26', holidayDate: '2026-01-26', type: 'NATIONAL', description: 'National Holiday' },
-      { id: 'hol-2', name: 'Independence Day', date: '2026-08-15', holidayDate: '2026-08-15', type: 'NATIONAL', description: 'National Holiday' },
-      { id: 'hol-3', name: 'Diwali', date: '2026-11-08', holidayDate: '2026-11-08', type: 'FESTIVAL', description: 'Festival Holiday' }
-    ];
-
-    this.notifications = [
-      {
-        id: 'notif-1',
-        title: 'Solar Urja ERP Workspace Ready',
-        message: 'All ERP, CRM, HRMS, Inventory & Finance modules for solar.klyiatechnology.com are active.',
-        type: 'INFO',
-        isRead: false,
-        createdAt: ts
-      }
-    ];
-
-    // 7. Seed Accounting Workspace
+    // Zero-balance Chart of Accounts & default structural cash/bank registers (zero dummy transactions)
     this.accAccounts = JSON.parse(JSON.stringify(DEFAULT_COA));
     this.accBankAccounts = [
       {
-        id: 'bank-hdfc-primary',
-        accountName: 'HDFC Corporate Current A/C',
-        accountType: 'BANK',
-        bankName: 'HDFC Bank',
-        accountNumber: '50200044112233',
-        ifscCode: 'HDFC0001234',
-        branch: 'Civic Centre, Bhilai',
-        coaAccountId: 'acc-1020',
-        openingBalance: 1250000,
-        currentBalance: 1750000,
-        isPrimary: true,
-        isActive: true,
-        createdAt: ts,
-        updatedAt: ts
-      },
-      {
-        id: 'bank-petty-cash',
-        accountName: 'Head Office Petty Cash Register',
+        id: 'bank-cash-main',
+        accountName: 'Office Petty Cash Register',
         accountType: 'CASH',
-        bankName: 'Cash',
-        accountNumber: 'CASH-HO-01',
+        bankName: 'Cash Drawer',
+        accountNumber: 'CASH-01',
         ifscCode: '',
-        branch: 'Risali, Bhilai',
+        branch: 'Head Office',
         coaAccountId: 'acc-1010',
-        openingBalance: 50000,
-        currentBalance: 50000,
+        openingBalance: 0,
+        currentBalance: 0,
         isPrimary: false,
         isActive: true,
         createdAt: ts,
         updatedAt: ts
-      }
-    ];
-    this.accJournals = [
+      },
       {
-        id: 'je-seed-1',
-        entryNumber: 'JV-2026-0001',
-        entryDate: '2026-10-18',
-        referenceType: 'CUSTOMER_RECEIPT',
-        referenceId: 'pay-1001',
-        referenceNumber: 'RCPT-2026-001',
-        narration: 'Advance milestone received from ABC Industries Ltd. (PRJ-2026-001)',
-        totalDebit: 900000,
-        totalCredit: 900000,
-        status: 'POSTED',
-        postedBy: 'Sneha Kulkarni',
-        postedAt: ts,
-        createdBy: 'Sneha Kulkarni',
-        lines: [
-          { id: 'jel-1', journalId: 'je-seed-1', lineOrder: 1, accountId: 'acc-1020', accountCode: '1020', accountName: 'Primary Current Bank Account', description: 'NEFT Advance', projectId: 'proj-1001', projectTitle: 'ABC Industries 50 kW On-Grid Industrial Rooftop', partyType: 'CUSTOMER', partyId: 'cust-abc-1', partyName: 'ABC Industries Ltd.', debit: 900000, credit: 0 },
-          { id: 'jel-2', journalId: 'je-seed-1', lineOrder: 2, accountId: 'acc-1100', accountCode: '1100', accountName: 'Accounts Receivable (Sundry Debtors)', description: 'Advance adjusted', projectId: 'proj-1001', projectTitle: 'ABC Industries 50 kW On-Grid Industrial Rooftop', partyType: 'CUSTOMER', partyId: 'cust-abc-1', partyName: 'ABC Industries Ltd.', debit: 0, credit: 900000 }
-        ],
+        id: 'bank-main-current',
+        accountName: 'Primary Corporate Current Account',
+        accountType: 'BANK',
+        bankName: 'Operating Bank',
+        accountNumber: 'SOLARURJA-CORP-001',
+        ifscCode: '',
+        branch: 'Main Branch',
+        coaAccountId: 'acc-1020',
+        openingBalance: 0,
+        currentBalance: 0,
+        isPrimary: true,
+        isActive: true,
         createdAt: ts,
         updatedAt: ts
       }
     ];
+    this.accJournals = [];
   }
 
   private verifyPasswordSync(plain: string, storedHashOrPlain: string): boolean {
@@ -1179,7 +632,7 @@ class InMemoryDatabaseStore {
     const existing = this.projects.find(p => p.id === proj.id);
     const stages = Array.isArray(proj.stages) && proj.stages.length > 0
       ? proj.stages
-      : (existing?.stages?.length ? existing.stages : buildStandardWorkflowStages(proj.id, proj.startDate || todayStr(), 'NEW'));
+      : (existing?.stages?.length ? existing.stages : buildStandardWorkflowStages(proj.id, Number(proj.capacityKw) || 10, 'NEW'));
     return this.upsertInArray(this.projects, { ...proj, stages });
   }
   public async deleteProject(id: string): Promise<boolean> { this.projects = this.projects.filter(p => p.id !== id); return true; }
@@ -1670,6 +1123,60 @@ class InMemoryDatabaseStore {
   }
   public async saveACLAuditLog(log: any): Promise<any> { return this.addAclAuditLog(log); }
 
+  public async recordAuditLog(log: {
+    actorId?: string;
+    actorName?: string;
+    actorRole?: string;
+    module: string;
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    summary: string;
+    details?: any;
+    ipAddress?: string;
+    userAgent?: string;
+    status?: string;
+  }): Promise<any> {
+    const entry = {
+      id: `audit-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+      actorId: String(log.actorId || 'system'),
+      actorName: String(log.actorName || 'System'),
+      actorRole: String(log.actorRole || 'System'),
+      module: String(log.module || 'SYSTEM').toUpperCase(),
+      action: String(log.action || 'EVENT').toUpperCase(),
+      entityType: String(log.entityType || ''),
+      entityId: String(log.entityId || ''),
+      summary: String(log.summary || ''),
+      details: log.details ?? null,
+      ipAddress: String(log.ipAddress || ''),
+      userAgent: String(log.userAgent || ''),
+      status: String(log.status || 'SUCCESS').toUpperCase(),
+      createdAt: nowIso()
+    };
+    this.systemAuditLogs.unshift(entry);
+    if (this.systemAuditLogs.length > 2000) {
+      this.systemAuditLogs = this.systemAuditLogs.slice(0, 2000);
+    }
+    return entry;
+  }
+
+  public async getAuditLogs(filters?: { module?: string; action?: string; actorId?: string; limit?: number }): Promise<any[]> {
+    let list = [...this.systemAuditLogs];
+    if (filters?.module) {
+      const m = filters.module.trim().toUpperCase();
+      list = list.filter(l => String(l.module).toUpperCase() === m);
+    }
+    if (filters?.action) {
+      const a = filters.action.trim().toUpperCase();
+      list = list.filter(l => String(l.action).toUpperCase() === a);
+    }
+    if (filters?.actorId) {
+      list = list.filter(l => l.actorId === filters.actorId);
+    }
+    const max = Math.min(Math.max(Number(filters?.limit) || 200, 1), 1000);
+    return list.slice(0, max);
+  }
+
   // ==========================================================
   // WORKFORCE LIVE TRACKING
   // ==========================================================
@@ -1877,9 +1384,42 @@ class InMemoryDatabaseStore {
     if (confirmation !== 'CONFIRM_WIPE_ERP_DATA') {
       throw new Error('Explicit confirmation code "CONFIRM_WIPE_ERP_DATA" is required.');
     }
+    const recordsWiped =
+      this.customers.length +
+      this.leads.length +
+      this.projects.length +
+      this.employees.length +
+      this.payments.length +
+      this.expenses.length +
+      this.products.length +
+      this.vendors.length +
+      this.purchaseOrders.length +
+      this.boms.length +
+      this.salesInvoices.length +
+      this.vendorSalesInvoices.length +
+      this.salesReturns.length +
+      this.purchaseReturns.length +
+      this.warehouses.length +
+      this.stockMovements.length +
+      this.stockAudits.length +
+      this.attendance.length +
+      this.payslips.length +
+      this.holidays.length +
+      this.leaveRequests.length +
+      this.leaveBalances.length +
+      this.quotations.length +
+      this.surveys.length +
+      this.serviceTickets.length +
+      this.serviceTicketHistory.length +
+      this.amcContracts.length +
+      this.notifications.length +
+      this.accJournals.length;
+
     this.customers = [];
     this.leads = [];
     this.projects = [];
+    this.employees = [];
+    this.employeeDocs.clear();
     this.payments = [];
     this.expenses = [];
     this.products = [];
@@ -1890,19 +1430,44 @@ class InMemoryDatabaseStore {
     this.vendorSalesInvoices = [];
     this.salesReturns = [];
     this.purchaseReturns = [];
+    this.warehouses = [];
+    this.stockMovements = [];
+    this.stockAudits = [];
     this.attendance = [];
     this.payslips = [];
+    this.holidays = [];
+    this.leaveRequests = [];
+    this.leaveBalances = [];
+    this.quotations = [];
+    this.surveys = [];
     this.serviceTickets = [];
+    this.serviceTicketHistory = [];
     this.amcContracts = [];
     this.notifications = [];
+    this.workforceLocations.clear();
+    this.accAccounts = JSON.parse(JSON.stringify(DEFAULT_COA));
+    this.accJournals = [];
+    this.accBankTransfers = [];
+    this.accBankReconciliations = [];
+    this.accVendorBills = [];
+    this.accVendorPayments = [];
+    this.accTdsEntries = [];
+    this.accBudgets = [];
+    this.accFixedAssets = [];
+    this.accDepreciationLogs = [];
+    for (const b of this.accBankAccounts) {
+      b.openingBalance = 0;
+      b.currentBalance = 0;
+    }
+
     return {
       success: true,
       backupFile: '',
       affectedTables: [],
       affectedBrowserKeys: [],
       preservedTables: ['solar_users', 'solar_system_settings', 'solar_acl_config'],
-      recordsWiped: 0,
-      message: 'In-memory ERP business records cleared. Administrative accounts preserved.'
+      recordsWiped,
+      message: 'In-memory ERP business records cleared. Administrative and demo login accounts preserved.'
     };
   }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LiveEmployeeLocation } from '../../types/tracking';
 import { formatRelativeTime } from '../../services/liveLocationService';
+import { AuthenticatedImage } from '../common/AuthenticatedImage';
 import {
   MapPin,
   Navigation,
@@ -91,10 +92,15 @@ export const FieldEmployeeCard: React.FC<FieldEmployeeCardProps> = ({
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="relative shrink-0">
             {employee.avatar ? (
-              <img
+              <AuthenticatedImage
                 src={employee.avatar}
                 alt={employee.name}
                 className="w-10 h-10 rounded-full object-cover border border-slate-200"
+                fallback={
+                  <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center border border-slate-200">
+                    {employee.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                  </div>
+                }
               />
             ) : (
               <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center border border-slate-200">

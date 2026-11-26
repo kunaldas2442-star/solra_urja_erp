@@ -145,11 +145,13 @@ async function createServerApp(httpServer?: http.Server) {
     console.warn('[Server Startup] Notice creating uploads directory:', err?.message || err);
   }
 
-  // Serve persistent uploads securely
-  app.use('/uploads', express.static(uploadsDir, {
-    maxAge: '1d',
-    immutable: false
-  }));
+  // Block unauthenticated direct static access to /uploads — all document & media downloads go through authenticated /api/uploads/* routes
+  app.all(['/uploads', '/uploads/*'], (_req, res) => {
+    res.status(401).json({
+      success: false,
+      error: 'Authentication required. Access uploaded files through authorized /api/uploads endpoints.'
+    });
+  });
 
   app.use('/api', apiRouter);
 
@@ -764,9 +766,12 @@ async function createServerApp(httpServer?: http.Server) {
     }
   });
 
-  // Gemini Generative Language Proxy Endpoint
+  // Gemini Generative Language Proxy Endpoint (authenticated staff only)
   app.post(['/api/gemini', '/api/gemini.php'], async (req, res) => {
     try {
+      const actor = await authenticateStaffSession(req, res);
+      if (!actor) return;
+
       const { prompt, systemInstruction, model } = req.body || {};
 
       if (!prompt || typeof prompt !== 'string') {
@@ -912,6 +917,19 @@ async function createServerApp(httpServer?: http.Server) {
         status: 'ACTIVE'
       });
 
+      await dbManager.recordAuditLog({
+        actorId: actor.id,
+        actorName: actor.name || actor.email,
+        actorRole: actor.role,
+        module: 'USERS',
+        action: 'CREATE_EMPLOYEE_ACCOUNT',
+        entityType: 'user',
+        entityId: savedUser.id || uid,
+        summary: `Provisioned employee login account for ${cleanName} (${cleanEmail}) [${cleanRole}]`,
+        ipAddress: req.ip || '',
+        userAgent: String(req.headers['user-agent'] || '')
+      });
+
       res.status(201).json({
         success: true,
         uid: savedUser.id || uid,
@@ -960,6 +978,19 @@ async function createServerApp(httpServer?: http.Server) {
       }
 
       await dbManager.saveUser(userUpdates, { updateOnly: true });
+
+      await dbManager.recordAuditLog({
+        actorId: actor.id,
+        actorName: actor.name || actor.email,
+        actorRole: actor.role,
+        module: 'USERS',
+        action: 'UPDATE_EMPLOYEE_ACCOUNT',
+        entityType: 'user',
+        entityId: uid,
+        summary: `Updated account ${uid}${password ? ' (password changed)' : ''}${statusValue ? ` [status=${statusValue}]` : ''}`,
+        ipAddress: req.ip || '',
+        userAgent: String(req.headers['user-agent'] || '')
+      });
 
       res.json({
         success: true,
@@ -1090,6 +1121,35 @@ async function createServerApp(httpServer?: http.Server) {
       res.status(404).type('text/plain').send('Not Found');
     });
   }
+
+  // Centralized Error Handling Middleware (handles malformed JSON, oversized payloads, and unexpected exceptions safely)
+  app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    if (res.headersSent) return;
+    if (err instanceof SyntaxError && 'body' in err) {
+      res.status(400).json({
+        success: false,
+        error: 'Malformed JSON request payload.'
+      });
+      return;
+    }
+    if (err?.type === 'entity.too.large' || err?.status === 413) {
+      res.status(413).json({
+        success: false,
+        error: 'Request payload exceeds the maximum allowed upload size.'
+      });
+      return;
+    }
+    const status = typeof err?.statusCode === 'number'
+      ? err.statusCode
+      : (typeof err?.status === 'number' ? err.status : 500);
+    console.error(`[Server Error] ${req.method} ${req.originalUrl}:`, err?.message || err);
+    res.status(status >= 400 && status < 600 ? status : 500).json({
+      success: false,
+      error: status >= 500
+        ? 'An internal server error occurred. Please try again or contact your system administrator.'
+        : (err?.message || 'Request failed.')
+    });
+  });
 
   return app;
 }

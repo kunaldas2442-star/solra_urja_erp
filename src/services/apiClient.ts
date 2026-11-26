@@ -2049,6 +2049,46 @@ class ApiClient {
       vendorBills: Array.isArray(data.vendorBills) ? data.vendorBills : []
     };
   }
+
+  async getAuditLogs(params?: {
+    module?: string;
+    action?: string;
+    actorId?: string;
+    limit?: number;
+  }): Promise<AuditLogEntry[]> {
+    const qs = new URLSearchParams();
+    if (params?.module) qs.set('module', params.module);
+    if (params?.action) qs.set('action', params.action);
+    if (params?.actorId) qs.set('actorId', params.actorId);
+    if (params?.limit) qs.set('limit', String(params.limit));
+    const query = qs.toString();
+    const res = await this.request(
+      `${this.baseUrl}/audit-logs${query ? `?${query}` : ''}`,
+      {
+        method: 'GET',
+        headers: this.getAuthHeaders()
+      }
+    );
+    const data = await this.parseJsonResponse(res, 'Failed to load system audit logs');
+    return Array.isArray(data.data) ? data.data : [];
+  }
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+  module: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  summary: string;
+  details?: any;
+  ipAddress?: string;
+  userAgent?: string;
+  status: string;
+  createdAt: string;
 }
 
 export interface EmailSettingsInfo {

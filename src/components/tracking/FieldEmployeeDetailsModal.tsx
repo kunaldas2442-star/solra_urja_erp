@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LiveEmployeeLocation } from '../../types/tracking';
 import { formatRelativeTime } from '../../services/liveLocationService';
 import { useApp } from '../../context/AppContext';
+import { AuthenticatedImage } from '../common/AuthenticatedImage';
 import {
   X,
   Phone,
@@ -83,10 +84,15 @@ export const FieldEmployeeDetailsModal: React.FC<FieldEmployeeDetailsModalProps>
           <div className="flex items-center gap-3.5">
             <div className="relative">
               {employee.avatar ? (
-                <img
+                <AuthenticatedImage
                   src={employee.avatar}
                   alt={employee.name}
                   className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md"
+                  fallback={
+                    <div className="w-14 h-14 rounded-2xl bg-amber-500 text-white font-black text-base flex items-center justify-center border-2 border-white shadow-md">
+                      {employee.name.split(' ').map((n) => n[0]).join('').slice(0, 2)}
+                    </div>
+                  }
                 />
               ) : (
                 <div className="w-14 h-14 rounded-2xl bg-amber-500 text-white font-black text-base flex items-center justify-center border-2 border-white shadow-md">

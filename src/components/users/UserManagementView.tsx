@@ -4,6 +4,7 @@ import { useAuth, ROLE_DEFINITIONS } from '../../context/AuthContext';
 import { storageService } from '../../services/storage';
 import { apiClient } from '../../services/apiClient';
 import { Employee, UserRole } from '../../types/solar';
+import { AuthenticatedImage } from '../common/AuthenticatedImage';
 import {
   Users,
   UserPlus,
@@ -718,10 +719,11 @@ export const UserManagementView: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full font-bold text-xs flex items-center justify-center border shrink-0 bg-slate-100 text-slate-700 border-slate-200">
                             {emp.photoUrl ? (
-                              <img
+                              <AuthenticatedImage
                                 src={emp.photoUrl}
                                 alt={emp.name}
                                 className="w-full h-full object-cover rounded-full"
+                                fallback={<span>{emp.name.charAt(0)}</span>}
                               />
                             ) : (
                               emp.name.charAt(0)

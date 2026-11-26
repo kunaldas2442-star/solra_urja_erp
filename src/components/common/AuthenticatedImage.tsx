@@ -5,12 +5,14 @@ import { apiClient } from '../../services/apiClient';
 interface AuthenticatedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   src?: string;
   alt: string;
+  fallback?: React.ReactNode;
 }
 
 export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
   src,
   alt,
   className = '',
+  fallback,
   ...rest
 }) => {
   const resolvedSrc = apiClient.resolveMediaUrl(src || '');
@@ -57,7 +59,10 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
           setHasFailed(false);
         })
         .catch(() => {
-          if (active) setDisplayUrl(resolvedSrc);
+          if (active) {
+            setHasFailed(true);
+            setDisplayUrl('');
+          }
         })
         .finally(() => {
           if (active) setIsLoadingBlob(false);
@@ -108,6 +113,9 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
   }
 
   if (hasFailed || !displayUrl) {
+    if (fallback !== undefined) {
+      return <>{fallback}</>;
+    }
     return (
       <div className={`flex flex-col items-center justify-center bg-slate-100 text-slate-400 p-2 text-center ${className}`}>
         <ImageOff className="w-5 h-5 mb-1 opacity-60" />

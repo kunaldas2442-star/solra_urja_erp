@@ -35,6 +35,7 @@ import {
 import { validateEmployee, DuplicateRecordError } from '../../services/validation';
 import { useAuth } from '../../context/AuthContext';
 import { apiClient } from '../../services/apiClient';
+import { AuthenticatedImage } from '../common/AuthenticatedImage';
 
 interface EmployeeModalProps {
   isOpen: boolean;
@@ -571,9 +572,38 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleViewDocument = (doc: EmployeeDocument) => {
+  const handleViewDocument = async (doc: EmployeeDocument) => {
     const isImage = doc.mimeType.startsWith('image/');
     const isPdf = doc.mimeType === 'application/pdf' || doc.fileName.toLowerCase().endsWith('.pdf');
+    const isProtectedUpload =
+      doc.fileUrl.includes('/api/uploads/') || doc.fileUrl.startsWith('/uploads/');
+
+    if (isProtectedUpload) {
+      try {
+        const targetUrl =
+          isImage || isPdf
+            ? doc.fileUrl
+            : doc.fileUrl.includes('?')
+              ? `${doc.fileUrl}&download=1`
+              : `${doc.fileUrl}?download=1`;
+        const { blobUrl } = await apiClient.fetchAuthorizedBlobUrl(targetUrl);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        if (isImage || isPdf) {
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+        } else {
+          link.download = doc.fileName;
+        }
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      } catch (err: any) {
+        setUploadErrors([err?.message || `Unable to open "${doc.fileName}".`]);
+      }
+      return;
+    }
 
     if (isImage || isPdf) {
       try {
@@ -611,7 +641,6 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
       link.click();
       document.body.removeChild(link);
     } else {
-      // DOC, DOCX, or other files: trigger file download
       const link = document.createElement('a');
       link.href = doc.fileUrl;
       link.download = doc.fileName;
@@ -1439,7 +1468,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
               </label>
               <div className="flex gap-2 items-center">
                 {formData.photoUrl && (
-                  <img
+                  <AuthenticatedImage
                     src={formData.photoUrl}
                     alt={formData.name || 'Employee Photo'}
                     className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0"

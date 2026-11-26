@@ -1,12 +1,46 @@
 -- ==========================================================
--- SolarPulse EPC ERP & CRM - Complete Production MySQL Database Dump
--- Generated for Direct Production Server & phpMyAdmin Deployment
+-- Solar Urja ERP & CRM - Complete Production MySQL Schema
+-- Domain: solar.klyiatechnology.com
 -- Engine: InnoDB | Charset: utf8mb4 | Collation: utf8mb4_unicode_ci
 -- ==========================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 SET time_zone = "+00:00";
+
+-- --------------------------------------------------------
+-- Table structure for table `solar_schema_migrations`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `solar_schema_migrations` (
+  `version` VARCHAR(128) PRIMARY KEY,
+  `description` VARCHAR(500) NOT NULL DEFAULT '',
+  `applied_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `solar_audit_logs`
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `solar_audit_logs` (
+  `id` VARCHAR(64) PRIMARY KEY,
+  `actor_id` VARCHAR(64) NOT NULL DEFAULT 'system',
+  `actor_name` VARCHAR(255) NOT NULL DEFAULT 'System',
+  `actor_role` VARCHAR(64) NOT NULL DEFAULT 'System',
+  `module` VARCHAR(64) NOT NULL,
+  `action` VARCHAR(64) NOT NULL,
+  `entity_type` VARCHAR(64) DEFAULT '',
+  `entity_id` VARCHAR(64) DEFAULT '',
+  `summary` TEXT NOT NULL,
+  `details_json` LONGTEXT DEFAULT NULL,
+  `ip_address` VARCHAR(64) DEFAULT '',
+  `user_agent` VARCHAR(500) DEFAULT '',
+  `status` VARCHAR(24) NOT NULL DEFAULT 'SUCCESS',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_audit_module` (`module`),
+  INDEX `idx_audit_action` (`action`),
+  INDEX `idx_audit_actor` (`actor_id`),
+  INDEX `idx_audit_entity` (`entity_type`, `entity_id`),
+  INDEX `idx_audit_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 -- Table structure for table `solar_users`
@@ -114,7 +148,8 @@ CREATE TABLE IF NOT EXISTS `solar_projects` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX `idx_projects_customer` (`customer_id`),
-  INDEX `idx_projects_status` (`status`)
+  INDEX `idx_projects_status` (`status`),
+  CONSTRAINT `fk_proj_customer` FOREIGN KEY (`customer_id`) REFERENCES `solar_customers` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -145,7 +180,8 @@ CREATE TABLE IF NOT EXISTS `solar_project_stages` (
   `rejection_reason` TEXT,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX `idx_stages_project` (`project_id`),
-  INDEX `idx_stages_status` (`status`)
+  INDEX `idx_stages_status` (`status`),
+  CONSTRAINT `fk_stage_project` FOREIGN KEY (`project_id`) REFERENCES `solar_projects` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -241,7 +277,8 @@ CREATE TABLE IF NOT EXISTS `solar_payments` (
   `tally_reference` VARCHAR(128) DEFAULT '',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX `idx_payments_project` (`project_id`),
-  INDEX `idx_payments_status` (`status`)
+  INDEX `idx_payments_status` (`status`),
+  CONSTRAINT `fk_payment_project` FOREIGN KEY (`project_id`) REFERENCES `solar_projects` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -330,7 +367,8 @@ CREATE TABLE IF NOT EXISTS `solar_employee_documents` (
   `uploaded_by` VARCHAR(255) DEFAULT 'HR Administrator',
   `notes` TEXT,
   INDEX `idx_emp_docs_empid` (`employee_id`),
-  INDEX `idx_emp_docs_cat` (`category`)
+  INDEX `idx_emp_docs_cat` (`category`),
+  CONSTRAINT `fk_emp_docs_emps` FOREIGN KEY (`employee_id`) REFERENCES `solar_employees` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -351,7 +389,8 @@ CREATE TABLE IF NOT EXISTS `solar_attendance` (
   `status` VARCHAR(32) DEFAULT 'PRESENT',
   `fuel_expense_json` LONGTEXT DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_attendance_emp_date` (`employee_id`, `attendance_date`)
+  INDEX `idx_attendance_emp_date` (`employee_id`, `attendance_date`),
+  CONSTRAINT `fk_att_emps` FOREIGN KEY (`employee_id`) REFERENCES `solar_employees` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -377,7 +416,8 @@ CREATE TABLE IF NOT EXISTS `solar_payslips` (
   `payment_mode` VARCHAR(64) DEFAULT 'NEFT/RTGS Bank Transfer',
   `bank_reference_no` VARCHAR(128) DEFAULT '',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_payslips_emp` (`employee_id`)
+  INDEX `idx_payslips_emp` (`employee_id`),
+  CONSTRAINT `fk_pay_emps` FOREIGN KEY (`employee_id`) REFERENCES `solar_employees` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -421,7 +461,8 @@ CREATE TABLE IF NOT EXISTS `solar_service_tickets` (
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX `idx_tickets_customer` (`customer_id`),
   INDEX `idx_tickets_status` (`status`),
-  INDEX `idx_tickets_technician` (`assigned_technician_id`)
+  INDEX `idx_tickets_technician` (`assigned_technician_id`),
+  CONSTRAINT `fk_ticket_customer` FOREIGN KEY (`customer_id`) REFERENCES `solar_customers` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -440,7 +481,8 @@ CREATE TABLE IF NOT EXISTS `solar_service_ticket_history` (
   `actor_role` VARCHAR(64) DEFAULT '',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX `idx_srv_hist_ticket` (`ticket_record_id`),
-  INDEX `idx_srv_hist_created` (`created_at`)
+  INDEX `idx_srv_hist_created` (`created_at`),
+  CONSTRAINT `fk_srv_hist_ticket` FOREIGN KEY (`ticket_record_id`) REFERENCES `solar_service_tickets` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -463,7 +505,9 @@ CREATE TABLE IF NOT EXISTS `solar_amc_contracts` (
   `status` VARCHAR(32) DEFAULT 'ACTIVE',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX `idx_amc_customer` (`customer_id`),
-  INDEX `idx_amc_status` (`status`)
+  INDEX `idx_amc_status` (`status`),
+  CONSTRAINT `fk_amc_customer` FOREIGN KEY (`customer_id`) REFERENCES `solar_customers` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_amc_project` FOREIGN KEY (`project_id`) REFERENCES `solar_projects` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -570,7 +614,8 @@ CREATE TABLE IF NOT EXISTS `solar_purchase_orders` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX `idx_po_vendor` (`vendor_id`),
-  INDEX `idx_po_status` (`status`)
+  INDEX `idx_po_status` (`status`),
+  CONSTRAINT `fk_po_vendor` FOREIGN KEY (`vendor_id`) REFERENCES `solar_vendors` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -599,7 +644,8 @@ CREATE TABLE IF NOT EXISTS `solar_boms` (
   `notes` TEXT,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX `idx_boms_project` (`project_id`)
+  INDEX `idx_boms_project` (`project_id`),
+  CONSTRAINT `fk_bom_project` FOREIGN KEY (`project_id`) REFERENCES `solar_projects` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -641,7 +687,8 @@ CREATE TABLE IF NOT EXISTS `solar_sales_invoices` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX `idx_invoices_customer` (`customer_id`),
-  INDEX `idx_invoices_status` (`payment_status`)
+  INDEX `idx_invoices_status` (`payment_status`),
+  CONSTRAINT `fk_sinv_customer` FOREIGN KEY (`customer_id`) REFERENCES `solar_customers` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -689,7 +736,8 @@ CREATE TABLE IF NOT EXISTS `solar_stock_movements` (
   `timestamp` DATETIME NOT NULL,
   `performed_by` VARCHAR(128) DEFAULT '',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_sm_product` (`product_id`)
+  INDEX `idx_sm_product` (`product_id`),
+  CONSTRAINT `fk_sm_product` FOREIGN KEY (`product_id`) REFERENCES `solar_products` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -805,7 +853,8 @@ CREATE TABLE IF NOT EXISTS `solar_auth_sessions` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `last_active_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX `idx_auth_sess_user_id` (`user_id`),
-  INDEX `idx_auth_sess_expires_at` (`expires_at`)
+  INDEX `idx_auth_sess_expires_at` (`expires_at`),
+  CONSTRAINT `fk_auth_sess_user` FOREIGN KEY (`user_id`) REFERENCES `solar_users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -817,7 +866,7 @@ CREATE TABLE IF NOT EXISTS `solar_email_settings` (
   `smtp_host` VARCHAR(191) NOT NULL DEFAULT 'smtp.gmail.com',
   `smtp_port` INT NOT NULL DEFAULT 587,
   `smtp_security` VARCHAR(16) NOT NULL DEFAULT 'TLS',
-  `sender_name` VARCHAR(255) NOT NULL DEFAULT 'Rejoy Solar ERP',
+  `sender_name` VARCHAR(255) NOT NULL DEFAULT 'Solar Urja ERP',
   `encrypted_app_password` TEXT NOT NULL,
   `iv` VARCHAR(64) NOT NULL,
   `auth_tag` VARCHAR(64) NOT NULL,
@@ -1092,7 +1141,8 @@ CREATE TABLE IF NOT EXISTS `solar_acc_vendor_payments` (
   `recorded_by` VARCHAR(255) DEFAULT '',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX `idx_vp_bill` (`bill_id`),
-  INDEX `idx_vp_vendor` (`vendor_id`)
+  INDEX `idx_vp_vendor` (`vendor_id`),
+  CONSTRAINT `fk_vp_bill` FOREIGN KEY (`bill_id`) REFERENCES `solar_acc_vendor_bills` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `solar_acc_tds_entries` (
@@ -1240,10 +1290,13 @@ VALUES ('master_acl_config', '{"Admin":{"crm.leads.view":true,"crm.leads.manage"
 
 -- Initial system settings (inserted only if missing)
 INSERT IGNORE INTO `solar_system_settings` (`setting_key`, `setting_value`)
-VALUES ('global_settings', '{"companyName":"REJOY SOLAR POWER PVT. LTD","companyAddress":"PLOT NO- 14, STREET NO- 14B, PRAGATI NAGAR, RISALI BHILAI, Chhattisgarh 490006","companyPhone":"+91 98250 12345","companyEmail":"rejoysolarpower@gmail.com","companyGst":"22AAOCR0748K1Z5","logoUrl":"/logo-dark.png","currencySymbol":"₹","taxRatePercent":18,"tallyServerUrl":"","tallyCompany":"Rejoy Solar 2026-27","tallyStatus":"NOT CONFIGURED","whatsAppStatus":"SANDBOX_READY"}');
+VALUES ('global_settings', '{"companyName":"SOLAR URJA ERP","companyAddress":"PLOT NO- 14, STREET NO- 14B, PRAGATI NAGAR, RISALI BHILAI, Chhattisgarh 490006","companyPhone":"+91 98250 12345","companyEmail":"support@solar.klyiatechnology.com","companyGst":"22AAOCR0748K1Z5","logoUrl":"/assets/aistudio/solar_urja_logo_07b84efe.jpeg","currencySymbol":"₹","taxRatePercent":18,"tallyServerUrl":"","tallyCompany":"Solar Urja 2026-27","tallyStatus":"NOT CONFIGURED","whatsAppStatus":"SANDBOX_READY"}');
+
+INSERT IGNORE INTO `solar_schema_migrations` (`version`, `description`)
+VALUES ('2026_11_26_production_schema_fk_and_audit', 'Production baseline schema with relational foreign keys and audit logging');
 
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ==========================================================
--- End of SolarPulse Production MySQL Dump
+-- End of Solar Urja ERP Production MySQL Schema
 -- ==========================================================

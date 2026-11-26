@@ -5,7 +5,7 @@ import { ExportModule } from '../services/exportImport';
 import { ReportCategory } from '../types/reports';
 import type { EmailDispatchType } from '../components/common/EmailDispatchModal';
 
-export type SettingsTab = 'general' | 'tally' | 'whatsapp' | 'acl' | 'users' | 'email';
+export type SettingsTab = 'general' | 'tally' | 'whatsapp' | 'acl' | 'users' | 'email' | 'audit_logs';
 
 export type FinanceTab =
   | 'dashboard'

@@ -540,6 +540,8 @@ export class AuthService {
     if (cred.account_type === 'CUSTOMER') {
       const cProf = await resolveCustomer();
       if (cProf) return cProf;
+      const uProf = await resolveUser();
+      if (uProf) return uProf;
     } else if (cred.account_type === 'ADMIN') {
       const uProf = await resolveUser();
       if (uProf) return uProf;

@@ -9,6 +9,7 @@ import { apiClient } from '../../services/apiClient';
 import { storageService } from '../../services/storage';
 import { useApp } from '../../context/AppContext';
 import { StatusBadge, PriorityBadge } from '../common/StatusBadge';
+import { AuthenticatedImage } from '../common/AuthenticatedImage';
 import {
   X,
   User,
@@ -481,7 +482,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                           onClick={() => setPreviewPhotoUrl(url)}
                           className="h-28 w-full bg-slate-100 overflow-hidden group relative"
                         >
-                          <img
+                          <AuthenticatedImage
                             src={url}
                             alt={label}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
@@ -742,7 +743,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             >
               <X className="w-4 h-4" />
             </button>
-            <img
+            <AuthenticatedImage
               src={previewPhotoUrl}
               alt="Customer attachment preview"
               className="max-w-full max-h-[85vh] rounded-xl shadow-2xl object-contain bg-white"

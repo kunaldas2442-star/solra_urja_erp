@@ -3,6 +3,7 @@ import { storageService } from '../../services/storage';
 import { ProjectUserAssignment, ProjectAssignmentRole, Employee } from '../../types/solar';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
+import { AuthenticatedImage } from '../common/AuthenticatedImage';
 import {
   X,
   UserCheck,
@@ -607,11 +608,15 @@ export const ProjectAssignmentModal: React.FC<ProjectAssignmentModalProps> = ({
             <div className="p-3.5 bg-linear-to-r from-amber-50/40 to-slate-50 border border-amber-200/70 rounded-2xl flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 {selectedEmployee.photoUrl ? (
-                  <img
+                  <AuthenticatedImage
                     src={selectedEmployee.photoUrl}
                     alt={selectedEmployee.name}
-                    referrerPolicy="no-referrer"
                     className="w-11 h-11 rounded-xl object-cover border border-white shadow-2xs shrink-0"
+                    fallback={
+                      <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-800 font-bold text-sm flex items-center justify-center border border-white shadow-2xs shrink-0">
+                        {selectedEmployee.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'EMP'}
+                      </div>
+                    }
                   />
                 ) : (
                   <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-800 font-bold text-sm flex items-center justify-center border border-white shadow-2xs shrink-0">

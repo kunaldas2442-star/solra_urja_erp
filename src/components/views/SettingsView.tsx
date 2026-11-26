@@ -5,6 +5,7 @@ import { storageService } from '../../services/storage';
 import { SystemSettings } from '../../types/solar';
 import { RoleBasedAccessControlPanel } from '../settings/RoleBasedAccessControlPanel';
 import { GmailSettingsPanel } from '../settings/GmailSettingsPanel';
+import { AuditLogsPanel } from '../settings/AuditLogsPanel';
 import {
   Settings,
   Building2,
@@ -19,12 +20,13 @@ import {
   Zap,
   Users,
   Sliders,
-  Sparkles
+  Sparkles,
+  History
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, showToast, triggerRefresh, activeSettingsTab, setActiveSettingsTab } = useApp();
-  const { hasPermission, isAdmin } = useAuth();
+  const { hasPermission, isAdmin, currentRole } = useAuth();
   const [form, setForm] = useState<SystemSettings>({ ...settings });
   const [isTestingTally, setIsTestingTally] = useState(false);
 
@@ -33,6 +35,10 @@ export const SettingsView: React.FC = () => {
   const canWhatsapp = hasPermission('settings.whatsapp');
   const canAcl = hasPermission('settings.acl_manage');
   const canEmail = isAdmin;
+  const canAuditLogs =
+    isAdmin ||
+    hasPermission('audit_logs.view') ||
+    ['Super Admin', 'HR Manager', 'Accountant'].includes(String(currentRole || ''));
 
   const requestedTab: SettingsTab = activeSettingsTab || 'general';
   const isTabAllowed = (tab: SettingsTab): boolean => {
@@ -47,6 +53,8 @@ export const SettingsView: React.FC = () => {
         return canAcl;
       case 'email':
         return canEmail;
+      case 'audit_logs':
+        return canAuditLogs;
       default:
         return false;
     }
@@ -57,6 +65,7 @@ export const SettingsView: React.FC = () => {
     (canWhatsapp && 'whatsapp') ||
     (canAcl && 'acl') ||
     (canEmail && 'email') ||
+    (canAuditLogs && 'audit_logs') ||
     'general';
   const currentTab: SettingsTab = isTabAllowed(requestedTab) ? requestedTab : fallbackTab;
 
@@ -195,6 +204,26 @@ export const SettingsView: React.FC = () => {
             </span>
           </button>
         )}
+
+        {canAuditLogs && (
+          <button
+            type="button"
+            onClick={() => setActiveSettingsTab('audit_logs')}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap ${
+              currentTab === 'audit_logs'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50'
+            }`}
+          >
+            <History className="w-4 h-4" />
+            <span>Audit Logs</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold ${
+              currentTab === 'audit_logs' ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-800'
+            }`}>
+              TRAIL
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Conditional Content based on active tab */}
@@ -202,6 +231,8 @@ export const SettingsView: React.FC = () => {
         <GmailSettingsPanel />
       ) : currentTab === 'acl' ? (
         <RoleBasedAccessControlPanel />
+      ) : currentTab === 'audit_logs' ? (
+        <AuditLogsPanel />
       ) : (
         <form onSubmit={handleSave} className="space-y-6">
           {/* Company Profile & Banking */}

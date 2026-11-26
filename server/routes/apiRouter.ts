@@ -150,8 +150,7 @@ async function checkAdminAuth(req: Request, res: Response, next: () => void) {
       }
     }
   }
-  const isLocal = req.ip === '127.0.0.1' || req.ip === '::1' || req.hostname === 'localhost';
-  if ((user && (user.role === 'Admin' || user.role === 'Super Admin')) || isLocal) {
+  if (user && (user.role === 'Admin' || user.role === 'Super Admin')) {
     return next();
   }
   if (!user) {
@@ -159,6 +158,65 @@ async function checkAdminAuth(req: Request, res: Response, next: () => void) {
     return;
   }
   res.status(403).json({ success: false, error: 'Access Denied: Administrative authorization required for database operations.' });
+}
+
+function requireAuthenticatedUser(req: Request, res: Response, next: () => void) {
+  const user = (req as any).user;
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Authentication required. Please log in.' });
+  }
+  next();
+}
+
+function requireStaffUser(req: Request, res: Response, next: () => void) {
+  const user = (req as any).user;
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Authentication required. Please log in.' });
+  }
+  if (isCustomerUser(user)) {
+    return res.status(403).json({ success: false, message: 'Access denied: Customer accounts cannot perform this action.' });
+  }
+  next();
+}
+
+function getCustomerMatchTokens(user: any): { custId: string; email: string; name: string } {
+  return {
+    custId: String(user?.customerId || user?.linkedEntityId || '').trim(),
+    email: String(user?.email || '').trim().toLowerCase(),
+    name: String(user?.name || '').trim().toLowerCase()
+  };
+}
+
+function recordAuditFromReq(
+  req: Request,
+  entry: {
+    actor?: any;
+    module: string;
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    summary: string;
+    details?: any;
+    status?: string;
+  }
+) {
+  const actor = entry.actor || (req as any).user;
+  dbManager
+    .recordAuditLog({
+      actorId: actor?.id || 'anonymous',
+      actorName: actor?.name || actor?.email || 'Anonymous',
+      actorRole: actor?.role || 'Unauthenticated',
+      module: entry.module,
+      action: entry.action,
+      entityType: entry.entityType,
+      entityId: entry.entityId,
+      summary: entry.summary,
+      details: entry.details,
+      ipAddress: req.ip || '',
+      userAgent: String(req.headers['user-agent'] || ''),
+      status: entry.status || 'SUCCESS'
+    })
+    .catch(() => {});
 }
 
 // Strict Admin-only middleware for sensitive Gmail SMTP credential endpoints (no localhost bypass)
@@ -233,7 +291,7 @@ apiRouter.get('/db/status', (_req: Request, res: Response) => {
         'solar_boms', 'solar_sales_invoices', 'solar_vendor_sales_invoices', 'solar_vendor_sales_invoice_items', 'solar_vendor_sales_payments',
         'solar_sales_returns', 'solar_sales_return_items', 'solar_purchase_returns', 'solar_purchase_return_items',
         'solar_warehouses', 'solar_stock_movements',
-        'solar_stock_audits', 'solar_acl_config', 'solar_acl_audit_logs',
+        'solar_stock_audits', 'solar_acl_config', 'solar_acl_audit_logs', 'solar_audit_logs',
         'solar_system_settings', 'solar_workforce_locations'
       ]
     });
@@ -242,8 +300,8 @@ apiRouter.get('/db/status', (_req: Request, res: Response) => {
   }
 });
 
-// Test custom MySQL connection
-apiRouter.post('/db/test-connection', async (req: Request, res: Response) => {
+// Test custom MySQL connection (Admin only)
+apiRouter.post('/db/test-connection', requireAdminOnly, async (req: Request, res: Response) => {
   try {
     const { host, port, user, password, database } = req.body || {};
     const envConfig = getDbConfigFromEnv();
@@ -265,6 +323,12 @@ apiRouter.post('/db/migrate', checkAdminAuth, async (req: Request, res: Response
   try {
     const customConfig = req.body || {};
     const result = await dbManager.runFullMigration(customConfig);
+    recordAuditFromReq(req, {
+      module: 'DATABASE',
+      action: 'MIGRATE',
+      entityType: 'schema',
+      summary: 'Executed database schema migration'
+    });
     res.json(result);
   } catch (err: any) {
     sendApiError(res, err, 'Migration error');
@@ -283,6 +347,12 @@ apiRouter.post('/db/wipe', checkAdminAuth, async (req: Request, res: Response) =
       return;
     }
     const result = await dbManager.backupAndWipeData(confirmation);
+    recordAuditFromReq(req, {
+      module: 'DATABASE',
+      action: 'WIPE',
+      entityType: 'erp_data',
+      summary: 'Wiped business ERP data with pre-wipe backup'
+    });
     res.json(result);
   } catch (err: any) {
     sendApiError(res, err, 'Data wipe error');
@@ -305,7 +375,7 @@ apiRouter.get(['/db/dump.sql', '/db/export-sql'], checkAdminAuth, (_req: Request
 // 2. MASTER BOOTSTRAP API (ONE ROUND-TRIP HYDRATION FROM MYSQL)
 // ==========================================================
 
-apiRouter.get('/bootstrap', async (req: Request, res: Response) => {
+apiRouter.get('/bootstrap', requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
     const data = await dbManager.getAllData();
     const user = (req as any).user;
@@ -314,9 +384,65 @@ apiRouter.get('/bootstrap', async (req: Request, res: Response) => {
       data.vendor_sales_invoices = [];
     }
     if (isCustomerUser(user)) {
+      const { custId, email, name } = getCustomerMatchTokens(user);
+      const ownedCustomerIds = new Set(
+        (data.customers || [])
+          .filter((c: any) =>
+            (custId && c.id === custId) ||
+            (email && String(c.email || '').trim().toLowerCase() === email)
+          )
+          .map((c: any) => c.id)
+      );
+      if (custId) ownedCustomerIds.add(custId);
+
+      data.customers = (data.customers || []).filter((c: any) => ownedCustomerIds.has(c.id));
+      data.projects = (data.projects || []).filter((p: any) =>
+        ownedCustomerIds.has(p.customerId) ||
+        (name && String(p.customerName || '').trim().toLowerCase() === name)
+      );
+      const ownedProjectIds = new Set((data.projects || []).map((p: any) => p.id));
+      data.quotations = (data.quotations || []).filter((q: any) =>
+        ownedCustomerIds.has(q.customerId) ||
+        ownedProjectIds.has(q.projectId) ||
+        (name && String(q.customerName || '').trim().toLowerCase() === name)
+      );
+      data.payments = (data.payments || []).filter((p: any) =>
+        ownedCustomerIds.has(p.customerId) ||
+        ownedProjectIds.has(p.projectId) ||
+        (name && String(p.customerName || '').trim().toLowerCase() === name)
+      );
+      data.service_tickets = (data.service_tickets || []).filter((t: any) =>
+        ownedCustomerIds.has(t.customerId) ||
+        ownedProjectIds.has(t.projectId) ||
+        (name && String(t.customerName || '').trim().toLowerCase() === name)
+      );
+      data.amc_contracts = (data.amc_contracts || []).filter((a: any) =>
+        ownedCustomerIds.has(a.customerId) ||
+        ownedProjectIds.has(a.projectId) ||
+        (name && String(a.customerName || '').trim().toLowerCase() === name)
+      );
+      data.sales_invoices = (data.sales_invoices || []).filter((inv: any) =>
+        ownedCustomerIds.has(inv.customerId) ||
+        ownedProjectIds.has(inv.projectId) ||
+        (name && String(inv.customerName || '').trim().toLowerCase() === name)
+      );
+      data.leads = [];
+      data.employees = [];
+      data.attendance = [];
+      data.payslips = [];
+      data.vendors = [];
+      data.products = [];
+      data.warehouses = [];
+      data.expenses = [];
+      data.surveys = [];
+      data.boms = [];
+      data.stock_movements = [];
+      data.stock_audits = [];
       data.sales_returns = [];
       data.purchase_returns = [];
       data.purchase_orders = [];
+      data.users = [];
+      data.acl_audit_logs = [];
     }
     res.json({
       success: true,
@@ -423,7 +549,13 @@ apiRouter.post('/sync/push', async (req: Request, res: Response) => {
     const deleteId = effectiveItem?.id || req.body?.id || (typeof effectiveItem === 'string' ? effectiveItem : null);
     if (deleteId && (action === 'delete' || req.body.isDelete)) {
       await dbManager.deleteItem(collection, deleteId);
-      console.log(`[MySQL Write Success] Deleted record ${deleteId} from collection "${collection}"`);
+      recordAuditFromReq(req, {
+        module: normalizedCollection.toUpperCase(),
+        action: 'SYNC_DELETE',
+        entityType: normalizedCollection,
+        entityId: String(deleteId),
+        summary: `Deleted ${deleteId} from ${collection}`
+      });
       res.json({ success: true, message: `Deleted from ${collection}` });
       return;
     }
@@ -436,7 +568,13 @@ apiRouter.post('/sync/push', async (req: Request, res: Response) => {
           : normalizedCollection === 'vendor_sales_invoices' || normalizedCollection === 'solar_vendor_sales_invoices'
           ? await dbManager.saveVendorSalesInvoice(effectiveItem, user)
           : await dbManager.saveItem(collection, effectiveItem);
-      console.log(`[MySQL Write Success] Committed record "${effectiveItem.id || 'singleton'}" to collection "${collection}"`);
+      recordAuditFromReq(req, {
+        module: normalizedCollection.toUpperCase(),
+        action: 'SYNC_SAVE',
+        entityType: normalizedCollection,
+        entityId: String(effectiveItem.id || 'singleton'),
+        summary: `Saved ${effectiveItem.id || 'singleton'} in ${collection}`
+      });
       res.json({ success: true, data: saved, message: `Saved to ${collection}` });
       return;
     }
@@ -448,7 +586,12 @@ apiRouter.post('/sync/push', async (req: Request, res: Response) => {
           await dbManager.saveItem(collection, it);
         }
       }
-      console.log(`[MySQL Write Success] Committed batch of ${items.length} records to collection "${collection}"`);
+      recordAuditFromReq(req, {
+        module: normalizedCollection.toUpperCase(),
+        action: 'SYNC_BATCH_SAVE',
+        entityType: normalizedCollection,
+        summary: `Batch synced ${items.length} records in ${collection}`
+      });
       res.json({ success: true, count: items.length, message: `Synced ${collection} to MySQL` });
       return;
     }
@@ -555,6 +698,15 @@ apiRouter.post(['/auth/register', '/auth/register/'], async (req: Request, res: 
       sessionToken = generateToken(user);
     }
 
+    recordAuditFromReq(req, {
+      actor: user,
+      module: 'AUTH',
+      action: 'ADMIN_REGISTER',
+      entityType: 'user',
+      entityId: user.id,
+      summary: `Registered administrator account ${user.email}`
+    });
+
     res.status(201).json({
       success: true,
       message: 'Admin account created successfully in MySQL.',
@@ -596,6 +748,13 @@ apiRouter.post(['/auth/login', '/auth/login/'], async (req: Request, res: Respon
         });
       } catch (authErr: any) {
         if (String(authErr?.message || '').toLowerCase().includes('disabled')) {
+          recordAuditFromReq(req, {
+            module: 'AUTH',
+            action: 'LOGIN',
+            entityType: 'user',
+            summary: `Blocked disabled account login for ${cleanEmail}`,
+            status: 'DISABLED'
+          });
           res.status(403).json({ success: false, message: authErr.message });
           return;
         }
@@ -610,6 +769,13 @@ apiRouter.post(['/auth/login', '/auth/login/'], async (req: Request, res: Respon
         legacyUser = await dbManager.authenticateUser(cleanEmail, cleanPass);
       } catch (legacyErr: any) {
         if (String(legacyErr?.message || '').toLowerCase().includes('disabled')) {
+          recordAuditFromReq(req, {
+            module: 'AUTH',
+            action: 'LOGIN',
+            entityType: 'user',
+            summary: `Blocked disabled account login for ${cleanEmail}`,
+            status: 'DISABLED'
+          });
           res.status(403).json({ success: false, message: legacyErr.message });
           return;
         }
@@ -642,6 +808,15 @@ apiRouter.post(['/auth/login', '/auth/login/'], async (req: Request, res: Respon
     if (authResult) {
       // Set secure HttpOnly cookie on client response
       authService.setSessionCookie(res, req, authResult.sessionToken);
+      recordAuditFromReq(req, {
+        actor: authResult.user,
+        module: 'AUTH',
+        action: 'LOGIN',
+        entityType: 'user',
+        entityId: authResult.user.id,
+        summary: `User ${authResult.user.email} (${authResult.user.role}) signed in`,
+        status: 'SUCCESS'
+      });
 
       // Return authenticated sanitized user (without sensitive credentials)
       res.json({
@@ -650,6 +825,13 @@ apiRouter.post(['/auth/login', '/auth/login/'], async (req: Request, res: Respon
         token: authResult.sessionToken
       });
     } else {
+      recordAuditFromReq(req, {
+        module: 'AUTH',
+        action: 'LOGIN',
+        entityType: 'user',
+        summary: `Failed login attempt for ${cleanEmail}`,
+        status: 'FAILED'
+      });
       res.status(401).json({
         success: false,
         message: 'Invalid credentials. Please verify your email and password in MySQL.'
@@ -734,6 +916,15 @@ apiRouter.post(['/auth/logout', '/auth/logout/'], async (req: Request, res: Resp
   if (token && pool) {
     await authService.destroySession(pool, token).catch(() => {});
   }
+  if ((req as any).user) {
+    recordAuditFromReq(req, {
+      module: 'AUTH',
+      action: 'LOGOUT',
+      entityType: 'user',
+      entityId: (req as any).user.id,
+      summary: `User ${(req as any).user.email} signed out`
+    });
+  }
   authService.clearSessionCookie(res, req);
   res.json({
     success: true,
@@ -741,15 +932,31 @@ apiRouter.post(['/auth/logout', '/auth/logout/'], async (req: Request, res: Resp
   });
 });
 
-// Password Change Endpoint (/api/auth/change-password)
-apiRouter.post(['/auth/change-password', '/auth/change-password/'], async (req: Request, res: Response) => {
+// Password Change Endpoint (/api/auth/change-password - Authenticated user self-service or Admin)
+apiRouter.post(['/auth/change-password', '/auth/change-password/'], requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
+    const actor = (req as any).user;
     const { userId, oldPassword, newPassword } = req.body || {};
-    if (!userId || !oldPassword || !newPassword) {
+    const targetId = String(userId || actor.id || '').trim();
+    if (!targetId || !oldPassword || !newPassword) {
       res.status(400).json({ success: false, message: 'User ID, current password, and new password are required.' });
       return;
     }
-    const result = await dbManager.changeUserPassword(userId, oldPassword, newPassword);
+    const actorRole = String(actor.role || '').trim().toUpperCase();
+    const isAdminActor = actorRole === 'ADMIN' || actorRole === 'SUPER ADMIN';
+    const isSelf = targetId === actor.id || targetId.toLowerCase() === String(actor.email || '').toLowerCase();
+    if (!isAdminActor && !isSelf) {
+      res.status(403).json({ success: false, message: 'Forbidden: You can only change your own password.' });
+      return;
+    }
+    const result = await dbManager.changeUserPassword(targetId, oldPassword, newPassword);
+    recordAuditFromReq(req, {
+      module: 'AUTH',
+      action: 'CHANGE_PASSWORD',
+      entityType: 'user',
+      entityId: targetId,
+      summary: `Password changed for account ${targetId}`
+    });
     res.json(result);
   } catch (err: any) {
     const isUnavailable = err?.code === 'DB_UNAVAILABLE' || err?.statusCode === 503 || err?.name === 'DbConnectionError';
@@ -766,6 +973,13 @@ apiRouter.post(['/auth/reset-password', '/auth/reset-password/'], requireRole(['
       return;
     }
     const result = await dbManager.resetUserPassword(email, newPassword);
+    recordAuditFromReq(req, {
+      module: 'AUTH',
+      action: 'RESET_PASSWORD',
+      entityType: 'user',
+      entityId: String(email),
+      summary: `Administrator reset password for ${email}`
+    });
     res.json(result);
   } catch (err: any) {
     const isUnavailable = err?.code === 'DB_UNAVAILABLE' || err?.statusCode === 503 || err?.name === 'DbConnectionError';
@@ -795,6 +1009,13 @@ apiRouter.post('/users', requireRole(['Admin', 'Super Admin']), async (req: Requ
     }
     const id = payload.id || `usr-${Date.now()}`;
     const saved = await dbManager.saveUser({ ...payload, id });
+    recordAuditFromReq(req, {
+      module: 'USERS',
+      action: 'CREATE_USER',
+      entityType: 'user',
+      entityId: id,
+      summary: `Created user account ${payload.email} (${payload.role || 'Staff'})`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to create user');
@@ -806,6 +1027,13 @@ apiRouter.put('/users/:id', requireRole(['Admin', 'Super Admin']), async (req: R
     const { id } = req.params;
     const payload = req.body || {};
     const updated = await dbManager.saveUser({ ...payload, id }, { updateOnly: true });
+    recordAuditFromReq(req, {
+      module: 'USERS',
+      action: 'UPDATE_USER',
+      entityType: 'user',
+      entityId: id,
+      summary: `Updated user account ${id}`
+    });
     res.json({ success: true, data: updated });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update user');
@@ -821,6 +1049,14 @@ apiRouter.put('/users/:id/password', requireRole(['Admin', 'Super Admin']), asyn
       return;
     }
     const ok = await dbManager.updateUserPassword(id, String(password).trim());
+    recordAuditFromReq(req, {
+      module: 'USERS',
+      action: 'UPDATE_USER_PASSWORD',
+      entityType: 'user',
+      entityId: id,
+      summary: `Updated password for user ${id}`,
+      status: ok ? 'SUCCESS' : 'NOT_FOUND'
+    });
     res.json({ success: ok, message: ok ? 'User password securely updated in MySQL.' : 'User account not found.' });
   } catch (err: any) {
     sendApiError(res, err, 'Password update failed');
@@ -831,6 +1067,13 @@ apiRouter.delete('/users/:id', requireRole(['Admin', 'Super Admin']), async (req
   try {
     const { id } = req.params;
     await dbManager.deleteUser(id);
+    recordAuditFromReq(req, {
+      module: 'USERS',
+      action: 'DELETE_USER',
+      entityType: 'user',
+      entityId: id,
+      summary: `Deleted user account ${id}`
+    });
     res.json({ success: true, message: 'User deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete user');
@@ -841,31 +1084,46 @@ apiRouter.delete('/users/:id', requireRole(['Admin', 'Super Admin']), async (req
 // 4. CUSTOMERS MODULE API
 // ==========================================================
 
-apiRouter.put('/customers/:id/password', async (req: Request, res: Response) => {
+apiRouter.put('/customers/:id/password', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { password } = req.body || {};
-    if (!password) {
-      res.status(400).json({ success: false, message: 'Password is required' });
+    if (!password || String(password).trim().length < 6) {
+      res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
       return;
     }
     const success = await dbManager.updateCustomerPassword(id, String(password).trim());
+    recordAuditFromReq(req, {
+      module: 'CUSTOMERS',
+      action: 'UPDATE_CUSTOMER_PASSWORD',
+      entityType: 'customer',
+      entityId: id,
+      summary: `Updated portal password for customer ${id}`
+    });
     res.json({ success, message: success ? 'Customer password updated in MySQL.' : 'Failed to update password.' });
   } catch (err: any) {
     sendApiError(res, err, 'Password update error');
   }
 });
 
-apiRouter.get('/customers', async (_req: Request, res: Response) => {
+apiRouter.get('/customers', requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
-    const customers = await dbManager.getCustomers();
+    const user = (req as any).user;
+    let customers = await dbManager.getCustomers();
+    if (isCustomerUser(user)) {
+      const { custId, email } = getCustomerMatchTokens(user);
+      customers = customers.filter((c: any) =>
+        (custId && c.id === custId) ||
+        (email && String(c.email || '').trim().toLowerCase() === email)
+      );
+    }
     res.json({ success: true, count: customers.length, data: customers });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to fetch customers');
   }
 });
 
-apiRouter.post('/customers', async (req: Request, res: Response) => {
+apiRouter.post('/customers', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const payload = req.body;
     if (!payload || !payload.name || !payload.phone) {
@@ -880,6 +1138,13 @@ apiRouter.post('/customers', async (req: Request, res: Response) => {
       createdAt: new Date().toISOString()
     };
     const saved = await dbManager.saveCustomer(newCust);
+    recordAuditFromReq(req, {
+      module: 'CUSTOMERS',
+      action: 'CREATE_CUSTOMER',
+      entityType: 'customer',
+      entityId: saved.id,
+      summary: `Created customer ${saved.name} (${saved.customerCode || saved.id})`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save customer');
@@ -887,7 +1152,7 @@ apiRouter.post('/customers', async (req: Request, res: Response) => {
 });
 
 // Batch Customer Import (Excel / CSV Hub)
-apiRouter.post(['/customers/import', '/customers/import/'], async (req: Request, res: Response) => {
+apiRouter.post(['/customers/import', '/customers/import/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { customers, rows } = req.body || {};
     const list = Array.isArray(customers) ? customers : (Array.isArray(rows) ? rows : []);
@@ -896,6 +1161,12 @@ apiRouter.post(['/customers/import', '/customers/import/'], async (req: Request,
       return;
     }
     const result = await dbManager.importCustomers(list);
+    recordAuditFromReq(req, {
+      module: 'CUSTOMERS',
+      action: 'IMPORT_CUSTOMERS',
+      entityType: 'customer',
+      summary: `Imported ${result.imported || list.length} customer records`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Customer Import Error]:', err);
@@ -903,21 +1174,35 @@ apiRouter.post(['/customers/import', '/customers/import/'], async (req: Request,
   }
 });
 
-apiRouter.put('/customers/:id', async (req: Request, res: Response) => {
+apiRouter.put('/customers/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const payload = req.body;
     const updated = await dbManager.saveCustomer({ ...payload, id });
+    recordAuditFromReq(req, {
+      module: 'CUSTOMERS',
+      action: 'UPDATE_CUSTOMER',
+      entityType: 'customer',
+      entityId: id,
+      summary: `Updated customer ${updated.name || id}`
+    });
     res.json({ success: true, data: updated });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update customer');
   }
 });
 
-apiRouter.delete('/customers/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/customers/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await dbManager.deleteCustomer(id);
+    recordAuditFromReq(req, {
+      module: 'CUSTOMERS',
+      action: 'DELETE_CUSTOMER',
+      entityType: 'customer',
+      entityId: id,
+      summary: `Deleted customer ${id}`
+    });
     res.json({ success: true, message: 'Customer deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete customer');
@@ -979,6 +1264,13 @@ apiRouter.post('/leads', async (req: Request, res: Response) => {
       createdAt: new Date().toISOString()
     };
     const saved = await dbManager.saveLead(newLead);
+    recordAuditFromReq(req, {
+      module: 'LEADS',
+      action: 'CREATE_LEAD',
+      entityType: 'lead',
+      entityId: saved.id,
+      summary: `Created lead for ${saved.customerName}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save lead');
@@ -1004,6 +1296,12 @@ apiRouter.post(['/leads/import', '/leads/import/'], async (req: Request, res: Re
       return;
     }
     const result = await dbManager.importLeads(list);
+    recordAuditFromReq(req, {
+      module: 'LEADS',
+      action: 'IMPORT_LEADS',
+      entityType: 'lead',
+      summary: `Imported ${result.imported || list.length} leads`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Lead Import Error]:', err);
@@ -1044,6 +1342,13 @@ apiRouter.put('/leads/:id', async (req: Request, res: Response) => {
       return;
     }
     const updated = await dbManager.saveLead({ ...payload, customerName, phone, id });
+    recordAuditFromReq(req, {
+      module: 'LEADS',
+      action: 'UPDATE_LEAD',
+      entityType: 'lead',
+      entityId: id,
+      summary: `Updated lead ${updated.customerName || id}`
+    });
     res.json({ success: true, data: updated });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update lead');
@@ -1063,6 +1368,13 @@ apiRouter.delete('/leads/:id', async (req: Request, res: Response) => {
     }
     const { id } = req.params;
     await dbManager.deleteLead(id);
+    recordAuditFromReq(req, {
+      module: 'LEADS',
+      action: 'DELETE_LEAD',
+      entityType: 'lead',
+      entityId: id,
+      summary: `Deleted lead ${id}`
+    });
     res.json({ success: true, message: 'Lead deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete lead');
@@ -1073,22 +1385,40 @@ apiRouter.delete('/leads/:id', async (req: Request, res: Response) => {
 // 6. PROJECTS MODULE API
 // ==========================================================
 
-apiRouter.get(['/projects', '/projects/'], async (_req: Request, res: Response) => {
+apiRouter.get(['/projects', '/projects/'], requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
-    const projects = await dbManager.getProjects();
+    const user = (req as any).user;
+    let projects = await dbManager.getProjects();
+    if (isCustomerUser(user)) {
+      const { custId, name } = getCustomerMatchTokens(user);
+      projects = projects.filter((p: any) =>
+        (custId && p.customerId === custId) ||
+        (name && String(p.customerName || '').trim().toLowerCase() === name)
+      );
+    }
     res.json({ success: true, count: projects.length, data: projects });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to fetch projects');
   }
 });
 
-apiRouter.get(['/projects/:id', '/projects/:id/'], async (req: Request, res: Response) => {
+apiRouter.get(['/projects/:id', '/projects/:id/'], requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
     const { id } = req.params;
     const projects = await dbManager.getProjects();
     const proj = projects.find(p => p.id === id);
     if (!proj) {
       return res.status(404).json({ success: false, error: `Project "${id}" not found.` });
+    }
+    if (isCustomerUser(user)) {
+      const { custId, name } = getCustomerMatchTokens(user);
+      const owns =
+        (custId && proj.customerId === custId) ||
+        (name && String(proj.customerName || '').trim().toLowerCase() === name);
+      if (!owns) {
+        return res.status(403).json({ success: false, error: 'Forbidden: You can only view your own solar projects.' });
+      }
     }
     res.json({ success: true, data: proj });
   } catch (err: any) {
@@ -1096,16 +1426,8 @@ apiRouter.get(['/projects/:id', '/projects/:id/'], async (req: Request, res: Res
   }
 });
 
-apiRouter.post(['/projects', '/projects/'], async (req: Request, res: Response) => {
+apiRouter.post(['/projects', '/projects/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (user && isCustomerUser(user)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: Customers have read-only access to projects and stages.'
-      });
-    }
-
     const payload = req.body;
     const newProj = {
       ...payload,
@@ -1114,6 +1436,13 @@ apiRouter.post(['/projects', '/projects/'], async (req: Request, res: Response) 
       createdAt: new Date().toISOString()
     };
     const saved = await dbManager.saveProject(newProj);
+    recordAuditFromReq(req, {
+      module: 'PROJECTS',
+      action: 'CREATE_PROJECT',
+      entityType: 'project',
+      entityId: saved.id,
+      summary: `Created project ${saved.projectCode || saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save project');
@@ -1121,16 +1450,8 @@ apiRouter.post(['/projects', '/projects/'], async (req: Request, res: Response) 
 });
 
 // Batch Project Import (Excel / CSV Hub)
-apiRouter.post(['/projects/import', '/projects/import/'], async (req: Request, res: Response) => {
+apiRouter.post(['/projects/import', '/projects/import/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (user && isCustomerUser(user)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: Customers have read-only access to projects.'
-      });
-    }
-
     const { projects, rows } = req.body || {};
     const list = Array.isArray(projects) ? projects : (Array.isArray(rows) ? rows : []);
     if (!list || list.length === 0) {
@@ -1138,6 +1459,12 @@ apiRouter.post(['/projects/import', '/projects/import/'], async (req: Request, r
       return;
     }
     const result = await dbManager.importProjects(list);
+    recordAuditFromReq(req, {
+      module: 'PROJECTS',
+      action: 'IMPORT_PROJECTS',
+      entityType: 'project',
+      summary: `Imported ${result.imported || list.length} project records`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Project Import Error]:', err);
@@ -1167,6 +1494,13 @@ apiRouter.put(['/projects/:id', '/projects/:id/'], async (req: Request, res: Res
       return res.status(400).json({ success: false, error: 'Total project value cannot be negative.' });
     }
     const updated = await dbManager.saveProject({ ...payload, id });
+    recordAuditFromReq(req, {
+      module: 'PROJECTS',
+      action: 'UPDATE_PROJECT',
+      entityType: 'project',
+      entityId: id,
+      summary: `Updated project ${updated.projectCode || id}`
+    });
     res.json({ success: true, data: updated });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update project');
@@ -1198,6 +1532,13 @@ apiRouter.put(
 
       const { id } = req.params;
       const result = await dbManager.updateProjectControlCenter(id, req.body || {}, user);
+      recordAuditFromReq(req, {
+        module: 'PROJECTS',
+        action: 'UPDATE_CONTROL_CENTER',
+        entityType: 'project',
+        entityId: id,
+        summary: `Updated project control center overview for ${id}`
+      });
       res.json({ success: true, data: result });
     } catch (err: any) {
       const status = Number(err?.statusCode) || 500;
@@ -1209,18 +1550,17 @@ apiRouter.put(
   }
 );
 
-apiRouter.delete(['/projects/:id', '/projects/:id/'], async (req: Request, res: Response) => {
+apiRouter.delete(['/projects/:id', '/projects/:id/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (user && isCustomerUser(user)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: Customers have read-only access to projects.'
-      });
-    }
-
     const { id } = req.params;
     await dbManager.deleteProject(id);
+    recordAuditFromReq(req, {
+      module: 'PROJECTS',
+      action: 'DELETE_PROJECT',
+      entityType: 'project',
+      entityId: id,
+      summary: `Deleted project ${id}`
+    });
     res.json({ success: true, message: 'Project deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete project');
@@ -1228,16 +1568,9 @@ apiRouter.delete(['/projects/:id', '/projects/:id/'], async (req: Request, res: 
 });
 
 // Dedicated Project Stage Update API (Protected: Read-only for Customers; Editable by Admins & Staff)
-apiRouter.put(['/projects/:id/stages/:stageKey', '/projects/:id/stages/:stageKey/'], async (req: Request, res: Response) => {
+apiRouter.put(['/projects/:id/stages/:stageKey', '/projects/:id/stages/:stageKey/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    if (user && isCustomerUser(user)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: Customers have read-only access to project stages and progress.'
-      });
-    }
-
     const { id: projectId, stageKey } = req.params;
     const updates = req.body || {};
     const updated = await dbManager.updateStageInProject(
@@ -1250,6 +1583,13 @@ apiRouter.put(['/projects/:id/stages/:stageKey', '/projects/:id/stages/:stageKey
     if (!updated) {
       return res.status(404).json({ success: false, error: `Project "${projectId}" or stage "${stageKey}" not found.` });
     }
+    recordAuditFromReq(req, {
+      module: 'PROJECTS',
+      action: 'UPDATE_STAGE',
+      entityType: 'project_stage',
+      entityId: `${projectId}:${stageKey}`,
+      summary: `Updated stage ${stageKey} for project ${projectId}`
+    });
     res.json({ success: true, data: updated, message: `Stage "${stageKey}" updated successfully in MySQL.` });
   } catch (err: any) {
     console.error('[Update Stage Error]:', err);
@@ -1257,16 +1597,9 @@ apiRouter.put(['/projects/:id/stages/:stageKey', '/projects/:id/stages/:stageKey
   }
 });
 
-apiRouter.patch(['/projects/:id/stages/:stageKey', '/projects/:id/stages/:stageKey/'], async (req: Request, res: Response) => {
+apiRouter.patch(['/projects/:id/stages/:stageKey', '/projects/:id/stages/:stageKey/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
-    if (user && isCustomerUser(user)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: Customers have read-only access to project stages and progress.'
-      });
-    }
-
     const { id: projectId, stageKey } = req.params;
     const updates = req.body || {};
     const updated = await dbManager.updateStageInProject(
@@ -1279,6 +1612,13 @@ apiRouter.patch(['/projects/:id/stages/:stageKey', '/projects/:id/stages/:stageK
     if (!updated) {
       return res.status(404).json({ success: false, error: `Project "${projectId}" or stage "${stageKey}" not found.` });
     }
+    recordAuditFromReq(req, {
+      module: 'PROJECTS',
+      action: 'PATCH_STAGE',
+      entityType: 'project_stage',
+      entityId: `${projectId}:${stageKey}`,
+      summary: `Patched stage ${stageKey} for project ${projectId}`
+    });
     res.json({ success: true, data: updated, message: `Stage "${stageKey}" updated successfully in MySQL.` });
   } catch (err: any) {
     console.error('[Patch Stage Error]:', err);
@@ -1289,7 +1629,8 @@ apiRouter.patch(['/projects/:id/stages/:stageKey', '/projects/:id/stages/:stageK
 function validateAndDecodeUploadNode(
   rawFileName: string,
   fileData: string,
-  mode: 'image' | 'bill'
+  mode: 'image' | 'bill' | 'document',
+  maxBytes = 10 * 1024 * 1024
 ): { buffer: Buffer; ext: string; mimeType: string; safeFileName: string; fileSize: number } {
   if (!rawFileName || !fileData || typeof fileData !== 'string') {
     throw Object.assign(new Error('Valid file name and file payload are required.'), { statusCode: 400 });
@@ -1299,8 +1640,9 @@ function validateAndDecodeUploadNode(
   if (buffer.length === 0) {
     throw Object.assign(new Error('Invalid or empty file payload.'), { statusCode: 400 });
   }
-  if (buffer.length > 10 * 1024 * 1024) {
-    throw Object.assign(new Error('Uploaded file exceeds the 10 MB size limit.'), { statusCode: 400 });
+  if (buffer.length > maxBytes) {
+    const mb = Math.round(maxBytes / (1024 * 1024));
+    throw Object.assign(new Error(`Uploaded file exceeds the ${mb} MB size limit.`), { statusCode: 400 });
   }
 
   let safeFileName = path.basename(rawFileName).replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -1337,23 +1679,53 @@ function validateAndDecodeUploadNode(
   } else if (/^\s*%PDF-/.test(buffer.subarray(0, 16).toString('latin1'))) {
     detectedExt = 'pdf';
     detectedMime = 'application/pdf';
+  } else if (
+    buffer.length >= 8 &&
+    buffer[0] === 0xd0 &&
+    buffer[1] === 0xcf &&
+    buffer[2] === 0x11 &&
+    buffer[3] === 0xe0 &&
+    buffer[4] === 0xa1 &&
+    buffer[5] === 0xb1 &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0xe1
+  ) {
+    detectedExt = 'doc';
+    detectedMime = 'application/msword';
+  } else if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x50 &&
+    buffer[1] === 0x4b &&
+    ((buffer[2] === 0x03 && buffer[3] === 0x04) || (buffer[2] === 0x05 && buffer[3] === 0x06))
+  ) {
+    detectedExt = 'docx';
+    detectedMime = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
   }
 
+  const normalizedExt = ext === 'jpeg' ? 'jpg' : ext;
   if (mode === 'image') {
     const allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
     if (!detectedExt || !['jpg', 'png', 'webp'].includes(detectedExt)) {
       throw Object.assign(new Error('Unsupported or invalid image file. Only JPG, JPEG, PNG, and WebP images are allowed.'), { statusCode: 400 });
     }
-    if (ext && !allowedExts.includes(ext)) {
-      throw Object.assign(new Error('Unsupported file extension. Only JPG, JPEG, PNG, and WebP images are allowed.'), { statusCode: 400 });
+    if (ext && (!allowedExts.includes(ext) || normalizedExt !== detectedExt)) {
+      throw Object.assign(new Error('File extension does not match verified image signature.'), { statusCode: 400 });
     }
-  } else {
+  } else if (mode === 'bill') {
     const allowedExts = ['pdf', 'jpg', 'jpeg', 'png'];
     if (!detectedExt || !['pdf', 'jpg', 'png'].includes(detectedExt)) {
       throw Object.assign(new Error('Unsupported file format. Only valid PDF, JPG, JPEG, or PNG vendor bills are allowed.'), { statusCode: 400 });
     }
-    if (ext && !allowedExts.includes(ext)) {
-      throw Object.assign(new Error('Unsupported file extension. Only PDF, JPG, JPEG, and PNG files are allowed.'), { statusCode: 400 });
+    if (ext && (!allowedExts.includes(ext) || normalizedExt !== detectedExt)) {
+      throw Object.assign(new Error('File extension does not match verified document signature.'), { statusCode: 400 });
+    }
+  } else {
+    const allowedExts = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp'];
+    if (!detectedExt || !['pdf', 'doc', 'docx', 'jpg', 'png', 'webp'].includes(detectedExt)) {
+      throw Object.assign(new Error('Unsupported or invalid document payload. Only valid PDF, DOC, DOCX, JPG, PNG, and WebP files are allowed.'), { statusCode: 400 });
+    }
+    if (ext && (!allowedExts.includes(ext) || normalizedExt !== detectedExt)) {
+      throw Object.assign(new Error('File extension does not match verified file signature.'), { statusCode: 400 });
     }
   }
 
@@ -1361,7 +1733,7 @@ function validateAndDecodeUploadNode(
   return {
     buffer,
     ext: detectedExt,
-    mimeType: detectedMime,
+    mimeType: detectedMime!,
     safeFileName,
     fileSize: buffer.length
   };
@@ -1495,6 +1867,7 @@ apiRouter.get('/uploads/projects/:projectId/:stageKey/:filename', async (req: Re
     }
 
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename="${safeName.replace(/"/g, '')}"`);
     res.sendFile(fullPath);
   } catch (err: any) {
@@ -1503,16 +1876,8 @@ apiRouter.get('/uploads/projects/:projectId/:stageKey/:filename', async (req: Re
 });
 
 // Dedicated Project Progress Update API
-apiRouter.put(['/projects/:id/progress', '/projects/:id/progress/'], async (req: Request, res: Response) => {
+apiRouter.put(['/projects/:id/progress', '/projects/:id/progress/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (user && isCustomerUser(user)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: Customers have read-only access to project stages and progress.'
-      });
-    }
-
     const { id: projectId } = req.params;
     const { progressPercentage, status } = req.body || {};
     const updated = await dbManager.updateProjectProgress(
@@ -1523,6 +1888,13 @@ apiRouter.put(['/projects/:id/progress', '/projects/:id/progress/'], async (req:
     if (!updated) {
       return res.status(404).json({ success: false, error: `Project "${projectId}" not found.` });
     }
+    recordAuditFromReq(req, {
+      module: 'PROJECTS',
+      action: 'UPDATE_PROGRESS',
+      entityType: 'project',
+      entityId: projectId,
+      summary: `Updated progress to ${progressPercentage}% (${status || 'unchanged'}) for project ${projectId}`
+    });
     res.json({ success: true, data: updated, message: 'Project progress updated successfully in MySQL.' });
   } catch (err: any) {
     console.error('[Update Progress Error]:', err);
@@ -1534,7 +1906,7 @@ apiRouter.put(['/projects/:id/progress', '/projects/:id/progress/'], async (req:
 // 7. HRMS & WORKFORCE APIS
 // ==========================================================
 
-apiRouter.get(['/employees', '/employee'], async (_req: Request, res: Response) => {
+apiRouter.get(['/employees', '/employee'], requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getEmployees();
     res.json({ success: true, count: items.length, data: items });
@@ -1553,6 +1925,13 @@ apiRouter.post(['/employees', '/employee'], requireRole(['Admin', 'Super Admin',
       createdAt: payload.createdAt || new Date().toISOString()
     };
     const saved = await dbManager.saveEmployee(emp);
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'CREATE_EMPLOYEE',
+      entityType: 'employee',
+      entityId: saved.id,
+      summary: `Created employee ${saved.name} (${saved.employeeCode})`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save employee');
@@ -1569,6 +1948,12 @@ apiRouter.post(['/employees/import', '/employees/import/', '/employee/import', '
       return;
     }
     const result = await dbManager.importEmployees(list);
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'IMPORT_EMPLOYEES',
+      entityType: 'employee',
+      summary: `Imported ${result.imported || list.length} employees`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Employee Import Error]:', err);
@@ -1586,6 +1971,13 @@ apiRouter.put(['/employees/:id', '/employee/:id'], requireRole(['Admin', 'Super 
     const { id } = req.params;
     const payload = req.body;
     const updated = await dbManager.saveEmployee({ ...payload, id });
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'UPDATE_EMPLOYEE',
+      entityType: 'employee',
+      entityId: id,
+      summary: `Updated employee ${updated.name || id}`
+    });
     res.json({ success: true, data: updated });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update employee');
@@ -1596,6 +1988,13 @@ apiRouter.delete(['/employees/:id', '/employee/:id'], requireRole(['Admin', 'Sup
   try {
     const { id } = req.params;
     await dbManager.deleteEmployee(id);
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'DELETE_EMPLOYEE',
+      entityType: 'employee',
+      entityId: id,
+      summary: `Deleted employee ${id}`
+    });
     res.json({ success: true, message: 'Employee deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete employee');
@@ -1603,9 +2002,16 @@ apiRouter.delete(['/employees/:id', '/employee/:id'], requireRole(['Admin', 'Sup
 });
 
 // Employee Documents: List documents for employee
-apiRouter.get('/employees/:id/documents', async (req: Request, res: Response) => {
+apiRouter.get('/employees/:id/documents', requireStaffUser, async (req: Request, res: Response) => {
   try {
+    const actor = (req as any).user;
     const { id } = req.params;
+    const roleUpper = String(actor?.role || '').trim().toUpperCase();
+    const isHrOrAdmin = roleUpper === 'ADMIN' || roleUpper === 'SUPER ADMIN' || roleUpper === 'HR MANAGER';
+    const isSelf = actor?.id === id || actor?.employeeId === id;
+    if (!isHrOrAdmin && !isSelf) {
+      return res.status(403).json({ success: false, message: 'Access denied: Only HR/Admin or the employee can view employee documents.' });
+    }
     const documents = await dbManager.getEmployeeDocuments(id);
     res.json({ success: true, count: documents.length, data: documents });
   } catch (err: any) {
@@ -1617,61 +2023,68 @@ apiRouter.get('/employees/:id/documents', async (req: Request, res: Response) =>
 apiRouter.post('/employees/:id/documents/upload', requireRole(['Admin', 'Super Admin', 'HR Manager']), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, category, fileName, mimeType, fileData, notes, uploadedBy } = req.body || {};
+    const { name, category, fileName, fileData, notes, uploadedBy } = req.body || {};
 
     if (!fileName || !fileData || typeof fileData !== 'string') {
       return res.status(400).json({ success: false, error: 'File name and fileData (base64) are required.', message: 'File name and fileData (base64) are required.' });
     }
 
+    const decoded = validateAndDecodeUploadNode(
+      String(fileName),
+      String(fileData),
+      'document',
+      20 * 1024 * 1024
+    );
+
     const safeEmpId = path.basename(id).replace(/[^a-zA-Z0-9_-]/g, '_');
-    const safeFileName = path.basename(fileName).replace(/[^a-zA-Z0-9._-]/g, '_');
-    const ext = path.extname(safeFileName).toLowerCase();
-    const allowedDocExts = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.webp'];
-    if (!allowedDocExts.includes(ext)) {
-      return res.status(400).json({ success: false, error: 'Unsupported file format. Only PDF, DOC, DOCX, JPG, PNG, and WebP files are allowed.', message: 'Unsupported file format. Only PDF, DOC, DOCX, JPG, PNG, and WebP files are allowed.' });
+    if (!safeEmpId || safeEmpId === '.' || safeEmpId === '..') {
+      return res.status(400).json({ success: false, error: 'Invalid employee identifier.', message: 'Invalid employee identifier.' });
     }
+
     const docId = `doc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const diskFileName = `${docId}_${safeFileName}`;
+    const diskFileName = `${docId}_${decoded.safeFileName}`;
 
-    const empDocsDir = path.join(process.cwd(), 'uploads', 'employees', safeEmpId, 'documents');
-    if (!fs.existsSync(empDocsDir)) {
-      fs.mkdirSync(empDocsDir, { recursive: true });
+    const uploadsBase = path.resolve(process.cwd(), 'uploads');
+    const empDocsDir = path.resolve(uploadsBase, 'employees', safeEmpId, 'documents');
+    if (!empDocsDir.startsWith(uploadsBase + path.sep)) {
+      return res.status(400).json({ success: false, error: 'Invalid upload directory path.', message: 'Invalid upload directory path.' });
     }
+    fs.mkdirSync(empDocsDir, { recursive: true });
 
-    // Extract raw base64 data if data URI
-    const base64Data = fileData.includes(',') ? fileData.split(',')[1] : fileData;
-    const fileBuffer = Buffer.from(base64Data, 'base64');
-
-    if (fileBuffer.length === 0) {
-      return res.status(400).json({ success: false, error: 'Invalid or empty document payload.', message: 'Invalid or empty document payload.' });
+    const filePath = path.resolve(empDocsDir, diskFileName);
+    if (!filePath.startsWith(empDocsDir + path.sep)) {
+      return res.status(400).json({ success: false, error: 'Invalid upload file path.', message: 'Invalid upload file path.' });
     }
-    if (fileBuffer.length > 20 * 1024 * 1024) {
-      return res.status(400).json({ success: false, error: 'Document file size exceeds 20 MB limit.', message: 'Document file size exceeds 20 MB limit.' });
-    }
+    fs.writeFileSync(filePath, decoded.buffer);
 
-    const filePath = path.join(empDocsDir, diskFileName);
-    fs.writeFileSync(filePath, fileBuffer);
-
-    const relativePath = path.join('uploads', 'employees', safeEmpId, 'documents', diskFileName);
-    const fileUrl = `/uploads/employees/${safeEmpId}/documents/${diskFileName}`;
+    const relativePath = `employees/${safeEmpId}/documents/${diskFileName}`;
+    const fileUrl = `/api/uploads/employees/${encodeURIComponent(safeEmpId)}/documents/${encodeURIComponent(diskFileName)}`;
 
     const savedDoc = await dbManager.saveEmployeeDocument({
       id: docId,
       employeeId: id,
       category: category || 'Other',
-      name: name || fileName.replace(/\.[^/.]+$/, ''),
-      fileName: safeFileName,
+      name: name || decoded.safeFileName.replace(/\.[^/.]+$/, ''),
+      fileName: decoded.safeFileName,
       filePath: relativePath,
       fileUrl,
-      mimeType: mimeType || 'application/octet-stream',
-      fileSize: fileBuffer.length,
+      mimeType: decoded.mimeType,
+      fileSize: decoded.fileSize,
       uploadedBy: uploadedBy || (req as any).user?.name || 'HR Administrator',
       notes: notes || undefined
     });
 
+    recordAuditFromReq(req, {
+      module: 'DOCUMENTS',
+      action: 'UPLOAD_EMPLOYEE_DOCUMENT',
+      entityType: 'employee_document',
+      entityId: docId,
+      summary: `Uploaded employee document "${decoded.safeFileName}" for ${id}`
+    });
+
     res.json({
       success: true,
-      message: `Document "${safeFileName}" uploaded and stored persistently on production server.`,
+      message: `Document "${decoded.safeFileName}" uploaded and stored securely on server.`,
       document: savedDoc
     });
   } catch (err: any) {
@@ -1683,7 +2096,24 @@ apiRouter.post('/employees/:id/documents/upload', requireRole(['Admin', 'Super A
 apiRouter.delete('/employees/:id/documents/:docId', requireRole(['Admin', 'Super Admin', 'HR Manager']), async (req: Request, res: Response) => {
   try {
     const { id, docId } = req.params;
+    const docs = await dbManager.getEmployeeDocuments(id).catch(() => []);
+    const targetDoc = (docs || []).find((d: any) => d.id === docId);
     await dbManager.deleteEmployeeDocument(id, docId);
+    if (targetDoc?.filePath) {
+      const uploadsBase = path.resolve(process.cwd(), 'uploads');
+      const normalizedRel = String(targetDoc.filePath).replace(/^uploads[\\/]/, '');
+      const fp = path.resolve(uploadsBase, normalizedRel);
+      if (fp.startsWith(uploadsBase + path.sep) && fs.existsSync(fp)) {
+        try { fs.unlinkSync(fp); } catch {}
+      }
+    }
+    recordAuditFromReq(req, {
+      module: 'DOCUMENTS',
+      action: 'DELETE_EMPLOYEE_DOCUMENT',
+      entityType: 'employee_document',
+      entityId: docId,
+      summary: `Deleted employee document ${docId} for ${id}`
+    });
     res.json({ success: true, message: 'Document removed from server and database.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete document');
@@ -1700,39 +2130,49 @@ apiRouter.post('/employees/:id/photo/upload', requireRole(['Admin', 'Super Admin
       return res.status(400).json({ success: false, error: 'Photo data (base64) is required.', message: 'Photo data (base64) is required.' });
     }
 
+    const decoded = validateAndDecodeUploadNode(
+      String(fileName || 'profile-photo.jpg'),
+      String(photoData),
+      'image',
+      5 * 1024 * 1024
+    );
+
     const safeEmpId = path.basename(id).replace(/[^a-zA-Z0-9_-]/g, '_');
-    const ext = fileName ? path.extname(fileName).toLowerCase() : '.jpg';
-    const allowedExts = ['.jpg', '.jpeg', '.png', '.webp'];
-    const chosenExt = allowedExts.includes(ext) ? ext : '.jpg';
-    const photoId = `photo-${Date.now()}`;
-    const diskFileName = `${photoId}${chosenExt}`;
-
-    const empProfileDir = path.join(process.cwd(), 'uploads', 'employees', safeEmpId, 'profile');
-    if (!fs.existsSync(empProfileDir)) {
-      fs.mkdirSync(empProfileDir, { recursive: true });
+    if (!safeEmpId || safeEmpId === '.' || safeEmpId === '..') {
+      return res.status(400).json({ success: false, error: 'Invalid employee identifier.', message: 'Invalid employee identifier.' });
     }
+    const photoId = `photo-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const diskFileName = `${photoId}.${decoded.ext}`;
 
-    const base64Data = photoData.includes(',') ? photoData.split(',')[1] : photoData;
-    const fileBuffer = Buffer.from(base64Data, 'base64');
-
-    if (fileBuffer.length === 0) {
-      return res.status(400).json({ success: false, error: 'Invalid or empty image payload.', message: 'Invalid or empty image payload.' });
+    const uploadsBase = path.resolve(process.cwd(), 'uploads');
+    const empProfileDir = path.resolve(uploadsBase, 'employees', safeEmpId, 'profile');
+    if (!empProfileDir.startsWith(uploadsBase + path.sep)) {
+      return res.status(400).json({ success: false, error: 'Invalid upload directory path.', message: 'Invalid upload directory path.' });
     }
-    if (fileBuffer.length > 5 * 1024 * 1024) {
-      return res.status(400).json({ success: false, error: 'Profile photo exceeds 5 MB limit.', message: 'Profile photo exceeds 5 MB limit.' });
+    fs.mkdirSync(empProfileDir, { recursive: true });
+
+    const filePath = path.resolve(empProfileDir, diskFileName);
+    if (!filePath.startsWith(empProfileDir + path.sep)) {
+      return res.status(400).json({ success: false, error: 'Invalid upload file path.', message: 'Invalid upload file path.' });
     }
+    fs.writeFileSync(filePath, decoded.buffer);
 
-    const filePath = path.join(empProfileDir, diskFileName);
-    fs.writeFileSync(filePath, fileBuffer);
-
-    const fileUrl = `/uploads/employees/${safeEmpId}/profile/${diskFileName}`;
+    const fileUrl = `/api/uploads/employees/${encodeURIComponent(safeEmpId)}/profile/${encodeURIComponent(diskFileName)}`;
 
     // Update photo_url in solar_employees and solar_users
     await dbManager.updateEmployeePhoto(id, fileUrl);
 
+    recordAuditFromReq(req, {
+      module: 'DOCUMENTS',
+      action: 'UPLOAD_EMPLOYEE_PHOTO',
+      entityType: 'employee_photo',
+      entityId: id,
+      summary: `Uploaded profile photo for employee ${id}`
+    });
+
     res.json({
       success: true,
-      message: 'Employee profile photo uploaded and saved successfully.',
+      message: 'Employee profile photo uploaded and saved securely.',
       photoUrl: fileUrl
     });
   } catch (err: any) {
@@ -1740,23 +2180,41 @@ apiRouter.post('/employees/:id/photo/upload', requireRole(['Admin', 'Super Admin
   }
 });
 
-// Secure streaming fallback endpoint for employee uploads with path traversal protection
-apiRouter.get('/uploads/employees/:employeeId/:category/:filename', (req: Request, res: Response) => {
+// Secure authenticated streaming endpoint for employee uploads with strict RBAC & path confinement
+apiRouter.get('/uploads/employees/:employeeId/:category/:filename', requireStaffUser, (req: Request, res: Response) => {
   try {
+    const actor = (req as any).user;
     const { employeeId, category, filename } = req.params;
     if (employeeId.includes('..') || category.includes('..') || filename.includes('..')) {
-      return res.status(400).send('Invalid file path access request.');
+      return res.status(400).json({ success: false, error: 'Invalid file path access request.' });
+    }
+
+    const safeCat = String(category || '').trim().toLowerCase();
+    if (safeCat !== 'documents' && safeCat !== 'profile') {
+      return res.status(400).json({ success: false, error: 'Invalid upload category.' });
+    }
+
+    if (safeCat === 'documents') {
+      const roleUpper = String(actor?.role || '').trim().toUpperCase();
+      const isHrOrAdmin = roleUpper === 'ADMIN' || roleUpper === 'SUPER ADMIN' || roleUpper === 'HR MANAGER';
+      const isSelf = actor?.id === employeeId || actor?.employeeId === employeeId;
+      if (!isHrOrAdmin && !isSelf) {
+        return res.status(403).json({ success: false, error: 'Forbidden: Only HR, Admin, or the owning employee can download employee documents.' });
+      }
     }
 
     const safeEmpId = path.basename(employeeId).replace(/[^a-zA-Z0-9_-]/g, '_');
-    const safeCat = path.basename(category).replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeName = path.basename(filename);
+    const uploadsBase = path.resolve(process.cwd(), 'uploads', 'employees');
+    const fullPath = path.resolve(uploadsBase, safeEmpId, safeCat, safeName);
 
-    const fullPath = path.join(process.cwd(), 'uploads', 'employees', safeEmpId, safeCat, safeName);
-    if (!fs.existsSync(fullPath)) {
+    if (!fullPath.startsWith(uploadsBase + path.sep) || !fs.existsSync(fullPath) || !fs.statSync(fullPath).isFile()) {
       return res.status(404).json({ success: false, error: 'File not found on server.' });
     }
 
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename="${safeName.replace(/"/g, '')}"`);
     res.sendFile(fullPath);
   } catch (err: any) {
     sendApiError(res, err, 'Failed to deliver file');
@@ -1764,7 +2222,7 @@ apiRouter.get('/uploads/employees/:employeeId/:category/:filename', (req: Reques
 });
 
 // Attendance
-apiRouter.get('/attendance', async (_req: Request, res: Response) => {
+apiRouter.get('/attendance', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getAttendance();
     res.json({ success: true, count: items.length, data: items });
@@ -1773,10 +2231,17 @@ apiRouter.get('/attendance', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/attendance', async (req: Request, res: Response) => {
+apiRouter.post('/attendance', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const att = { ...req.body, id: req.body.id || `att-${Date.now()}` };
     const saved = await dbManager.saveAttendance(att);
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'SAVE_ATTENDANCE',
+      entityType: 'attendance',
+      entityId: saved.id,
+      summary: `Logged attendance ${saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save attendance');
@@ -1784,7 +2249,7 @@ apiRouter.post('/attendance', async (req: Request, res: Response) => {
 });
 
 // Batch Attendance Import (Excel / CSV Hub)
-apiRouter.post(['/attendance/import', '/attendance/import/'], async (req: Request, res: Response) => {
+apiRouter.post(['/attendance/import', '/attendance/import/'], requireRole(['Admin', 'Super Admin', 'HR Manager']), async (req: Request, res: Response) => {
   try {
     const { attendance, rows } = req.body || {};
     const list = Array.isArray(attendance) ? attendance : (Array.isArray(rows) ? rows : (Array.isArray(req.body) ? req.body : []));
@@ -1793,6 +2258,12 @@ apiRouter.post(['/attendance/import', '/attendance/import/'], async (req: Reques
       return;
     }
     const result = await dbManager.importAttendance(list);
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'IMPORT_ATTENDANCE',
+      entityType: 'attendance',
+      summary: `Imported ${result.imported || list.length} attendance records`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Attendance Import Error]:', err);
@@ -1805,17 +2276,24 @@ apiRouter.post(['/attendance/import', '/attendance/import/'], async (req: Reques
   }
 });
 
-apiRouter.put('/attendance/:id', async (req: Request, res: Response) => {
+apiRouter.put('/attendance/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const saved = await dbManager.saveAttendance({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'UPDATE_ATTENDANCE',
+      entityType: 'attendance',
+      entityId: id,
+      summary: `Updated attendance record ${id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update attendance');
   }
 });
 
-apiRouter.put('/attendance/:id/fuel-approval', async (req: Request, res: Response) => {
+apiRouter.put('/attendance/:id/fuel-approval', requireRole(['Admin', 'Super Admin', 'HR Manager', 'Accountant', 'Project Manager']), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { approvalStatus, approvedBy, status, reviewedBy, notes } = req.body || {};
@@ -1844,15 +2322,29 @@ apiRouter.put('/attendance/:id/fuel-approval', async (req: Request, res: Respons
     };
 
     const saved = await dbManager.saveAttendance(updatedRecord);
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'FUEL_APPROVAL',
+      entityType: 'attendance',
+      entityId: id,
+      summary: `Marked fuel expense ${id} as ${resolvedStatus}`
+    });
     res.json({ success: true, data: saved, message: `Fuel log marked as ${resolvedStatus}.` });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update fuel approval status');
   }
 });
 
-apiRouter.delete('/attendance/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/attendance/:id', requireRole(['Admin', 'Super Admin', 'HR Manager']), async (req: Request, res: Response) => {
   try {
     await dbManager.deleteAttendance(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'DELETE_ATTENDANCE',
+      entityType: 'attendance',
+      entityId: req.params.id,
+      summary: `Deleted attendance record ${req.params.id}`
+    });
     res.json({ success: true, message: 'Attendance record deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete attendance');
@@ -1860,7 +2352,7 @@ apiRouter.delete('/attendance/:id', async (req: Request, res: Response) => {
 });
 
 // Payslips / Payroll
-apiRouter.get('/payslips', async (_req: Request, res: Response) => {
+apiRouter.get('/payslips', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getPayslips();
     res.json({ success: true, count: items.length, data: items });
@@ -1869,29 +2361,50 @@ apiRouter.get('/payslips', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/payslips', async (req: Request, res: Response) => {
+apiRouter.post('/payslips', requireRole(['Admin', 'Super Admin', 'HR Manager', 'Accountant']), async (req: Request, res: Response) => {
   try {
     const ps = { ...req.body, id: req.body.id || `pay-${Date.now()}` };
     const saved = await dbManager.savePayslip(ps);
+    recordAuditFromReq(req, {
+      module: 'PAYROLL',
+      action: 'CREATE_PAYSLIP',
+      entityType: 'payslip',
+      entityId: saved.id,
+      summary: `Generated payslip ${saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save payslip');
   }
 });
 
-apiRouter.put('/payslips/:id', async (req: Request, res: Response) => {
+apiRouter.put('/payslips/:id', requireRole(['Admin', 'Super Admin', 'HR Manager', 'Accountant']), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const saved = await dbManager.savePayslip({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'PAYROLL',
+      action: 'UPDATE_PAYSLIP',
+      entityType: 'payslip',
+      entityId: id,
+      summary: `Updated payslip ${id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update payslip');
   }
 });
 
-apiRouter.delete('/payslips/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/payslips/:id', requireRole(['Admin', 'Super Admin', 'HR Manager', 'Accountant']), async (req: Request, res: Response) => {
   try {
     await dbManager.deletePayslip(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'PAYROLL',
+      action: 'DELETE_PAYSLIP',
+      entityType: 'payslip',
+      entityId: req.params.id,
+      summary: `Deleted payslip ${req.params.id}`
+    });
     res.json({ success: true, message: 'Payslip deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete payslip');
@@ -1899,7 +2412,7 @@ apiRouter.delete('/payslips/:id', async (req: Request, res: Response) => {
 });
 
 // Holidays
-apiRouter.get('/holidays', async (_req: Request, res: Response) => {
+apiRouter.get('/holidays', requireAuthenticatedUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getHolidays();
     res.json({ success: true, count: items.length, data: items });
@@ -1908,29 +2421,50 @@ apiRouter.get('/holidays', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/holidays', async (req: Request, res: Response) => {
+apiRouter.post('/holidays', requireRole(['Admin', 'Super Admin', 'HR Manager']), async (req: Request, res: Response) => {
   try {
     const h = { ...req.body, id: req.body.id || `hol-${Date.now()}` };
     const saved = await dbManager.saveHoliday(h);
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'CREATE_HOLIDAY',
+      entityType: 'holiday',
+      entityId: saved.id,
+      summary: `Created holiday ${saved.name || saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save holiday');
   }
 });
 
-apiRouter.put('/holidays/:id', async (req: Request, res: Response) => {
+apiRouter.put('/holidays/:id', requireRole(['Admin', 'Super Admin', 'HR Manager']), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const saved = await dbManager.saveHoliday({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'UPDATE_HOLIDAY',
+      entityType: 'holiday',
+      entityId: id,
+      summary: `Updated holiday ${saved.name || id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update holiday');
   }
 });
 
-apiRouter.delete('/holidays/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/holidays/:id', requireRole(['Admin', 'Super Admin', 'HR Manager']), async (req: Request, res: Response) => {
   try {
     await dbManager.deleteHoliday(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'HRMS',
+      action: 'DELETE_HOLIDAY',
+      entityType: 'holiday',
+      entityId: req.params.id,
+      summary: `Deleted holiday ${req.params.id}`
+    });
     res.json({ success: true, message: 'Holiday deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete holiday');
@@ -2042,7 +2576,7 @@ apiRouter.delete('/leaves/:id', async (req: Request, res: Response) => {
 // ==========================================================
 
 // Products (Catalog)
-apiRouter.get('/products', async (_req: Request, res: Response) => {
+apiRouter.get('/products', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getProducts();
     res.json({ success: true, count: items.length, data: items });
@@ -2051,10 +2585,17 @@ apiRouter.get('/products', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/products', async (req: Request, res: Response) => {
+apiRouter.post('/products', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const prod = { ...req.body, id: req.body.id || `prod-${Date.now()}` };
     const saved = await dbManager.saveProduct(prod);
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'CREATE_PRODUCT',
+      entityType: 'product',
+      entityId: saved.id,
+      summary: `Created product ${saved.name || saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save product');
@@ -2062,7 +2603,7 @@ apiRouter.post('/products', async (req: Request, res: Response) => {
 });
 
 // Batch Product Import (Excel / CSV Hub)
-apiRouter.post(['/products/import', '/products/import/'], async (req: Request, res: Response) => {
+apiRouter.post(['/products/import', '/products/import/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { products, rows } = req.body || {};
     const list = Array.isArray(products) ? products : (Array.isArray(rows) ? rows : (Array.isArray(req.body) ? req.body : []));
@@ -2071,6 +2612,12 @@ apiRouter.post(['/products/import', '/products/import/'], async (req: Request, r
       return;
     }
     const result = await dbManager.importProducts(list);
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'IMPORT_PRODUCTS',
+      entityType: 'product',
+      summary: `Imported ${result.imported || list.length} products`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Product Import Error]:', err);
@@ -2083,19 +2630,33 @@ apiRouter.post(['/products/import', '/products/import/'], async (req: Request, r
   }
 });
 
-apiRouter.put('/products/:id', async (req: Request, res: Response) => {
+apiRouter.put('/products/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const saved = await dbManager.saveProduct({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'UPDATE_PRODUCT',
+      entityType: 'product',
+      entityId: id,
+      summary: `Updated product ${saved.name || id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update product');
   }
 });
 
-apiRouter.delete('/products/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/products/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     await dbManager.deleteProduct(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'DELETE_PRODUCT',
+      entityType: 'product',
+      entityId: req.params.id,
+      summary: `Deleted product ${req.params.id}`
+    });
     res.json({ success: true, message: 'Product deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete product');
@@ -2103,7 +2664,7 @@ apiRouter.delete('/products/:id', async (req: Request, res: Response) => {
 });
 
 // Vendors
-apiRouter.get('/vendors', async (_req: Request, res: Response) => {
+apiRouter.get('/vendors', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getVendors();
     res.json({ success: true, count: items.length, data: items });
@@ -2112,10 +2673,17 @@ apiRouter.get('/vendors', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/vendors', async (req: Request, res: Response) => {
+apiRouter.post('/vendors', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const v = { ...req.body, id: req.body.id || `ven-${Date.now()}` };
     const saved = await dbManager.saveVendor(v);
+    recordAuditFromReq(req, {
+      module: 'PROCUREMENT',
+      action: 'CREATE_VENDOR',
+      entityType: 'vendor',
+      entityId: saved.id,
+      summary: `Created vendor ${saved.name || saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save vendor');
@@ -2123,7 +2691,7 @@ apiRouter.post('/vendors', async (req: Request, res: Response) => {
 });
 
 // Batch Vendor Import (Excel / CSV Hub)
-apiRouter.post(['/vendors/import', '/vendors/import/'], async (req: Request, res: Response) => {
+apiRouter.post(['/vendors/import', '/vendors/import/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { vendors, rows } = req.body || {};
     const list = Array.isArray(vendors) ? vendors : (Array.isArray(rows) ? rows : (Array.isArray(req.body) ? req.body : []));
@@ -2132,6 +2700,12 @@ apiRouter.post(['/vendors/import', '/vendors/import/'], async (req: Request, res
       return;
     }
     const result = await dbManager.importVendors(list);
+    recordAuditFromReq(req, {
+      module: 'PROCUREMENT',
+      action: 'IMPORT_VENDORS',
+      entityType: 'vendor',
+      summary: `Imported ${result.imported || list.length} vendors`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Vendor Import Error]:', err);
@@ -2144,19 +2718,33 @@ apiRouter.post(['/vendors/import', '/vendors/import/'], async (req: Request, res
   }
 });
 
-apiRouter.put('/vendors/:id', async (req: Request, res: Response) => {
+apiRouter.put('/vendors/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const saved = await dbManager.saveVendor({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'PROCUREMENT',
+      action: 'UPDATE_VENDOR',
+      entityType: 'vendor',
+      entityId: id,
+      summary: `Updated vendor ${saved.name || id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update vendor');
   }
 });
 
-apiRouter.delete('/vendors/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/vendors/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     await dbManager.deleteVendor(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'PROCUREMENT',
+      action: 'DELETE_VENDOR',
+      entityType: 'vendor',
+      entityId: req.params.id,
+      summary: `Deleted vendor ${req.params.id}`
+    });
     res.json({ success: true, message: 'Vendor deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete vendor');
@@ -2164,7 +2752,7 @@ apiRouter.delete('/vendors/:id', async (req: Request, res: Response) => {
 });
 
 // Purchase Orders
-apiRouter.get('/purchase-orders', async (_req: Request, res: Response) => {
+apiRouter.get('/purchase-orders', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getPurchaseOrders();
     res.json({ success: true, count: items.length, data: items });
@@ -2180,6 +2768,13 @@ apiRouter.post('/purchase-orders', async (req: Request, res: Response) => {
     if (isCustomerUser(actor)) return res.status(403).json({ success: false, error: 'Forbidden: Customers cannot manage purchase orders.' });
     const po = { ...req.body, id: req.body.id || `po-${Date.now()}` };
     const saved = await dbManager.savePurchaseOrder(po, actor);
+    recordAuditFromReq(req, {
+      module: 'PROCUREMENT',
+      action: 'CREATE_PURCHASE_ORDER',
+      entityType: 'purchase_order',
+      entityId: saved.id,
+      summary: `Created purchase order ${saved.poNumber || saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save purchase order');
@@ -2193,6 +2788,13 @@ apiRouter.put('/purchase-orders/:id', async (req: Request, res: Response) => {
     if (isCustomerUser(actor)) return res.status(403).json({ success: false, error: 'Forbidden: Customers cannot manage purchase orders.' });
     const { id } = req.params;
     const saved = await dbManager.savePurchaseOrder({ ...req.body, id }, actor);
+    recordAuditFromReq(req, {
+      module: 'PROCUREMENT',
+      action: 'UPDATE_PURCHASE_ORDER',
+      entityType: 'purchase_order',
+      entityId: id,
+      summary: `Updated purchase order ${saved.poNumber || id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update purchase order');
@@ -2307,6 +2909,7 @@ apiRouter.get('/uploads/purchase-bills/:poId/:filename', async (req: Request, re
     }
 
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename="${safeName.replace(/"/g, '')}"`);
     res.sendFile(fullPath);
   } catch (err: any) {
@@ -2321,6 +2924,13 @@ apiRouter.post('/purchase-orders/:id/payments', async (req: Request, res: Respon
     if (isCustomerUser(actor)) return res.status(403).json({ success: false, error: 'Forbidden: Customers cannot record vendor payments.' });
     const pool = getRequiredPool();
     const result = await accountingService.recordPurchaseOrderPayment(pool, req.params.id, req.body || {}, actor);
+    recordAuditFromReq(req, {
+      module: 'PROCUREMENT',
+      action: 'RECORD_PO_PAYMENT',
+      entityType: 'purchase_order',
+      entityId: req.params.id,
+      summary: `Recorded payment for purchase order ${req.params.id}`
+    });
     res.status(201).json({ success: true, data: result });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to record purchase order payment');
@@ -2333,6 +2943,13 @@ apiRouter.delete('/purchase-orders/:id', async (req: Request, res: Response) => 
     if (!actor) return res.status(401).json({ success: false, error: 'Authentication required. Please log in.' });
     if (isCustomerUser(actor)) return res.status(403).json({ success: false, error: 'Forbidden: Customers cannot delete purchase orders.' });
     await dbManager.deletePurchaseOrder(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'PROCUREMENT',
+      action: 'DELETE_PURCHASE_ORDER',
+      entityType: 'purchase_order',
+      entityId: req.params.id,
+      summary: `Deleted purchase order ${req.params.id}`
+    });
     res.json({ success: true, message: 'Purchase order deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete purchase order');
@@ -2340,7 +2957,7 @@ apiRouter.delete('/purchase-orders/:id', async (req: Request, res: Response) => 
 });
 
 // Bill of Materials (BOM)
-apiRouter.get('/boms', async (_req: Request, res: Response) => {
+apiRouter.get('/boms', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getBOMs();
     res.json({ success: true, count: items.length, data: items });
@@ -2360,6 +2977,13 @@ apiRouter.post('/boms', async (req: Request, res: Response) => {
     }
     const bom = { ...req.body, id: req.body?.id || `bom-${Date.now()}` };
     const saved = await dbManager.saveBOM(bom);
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'CREATE_BOM',
+      entityType: 'bom',
+      entityId: saved.id,
+      summary: `Created BOM ${saved.name || saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save BOM');
@@ -2377,6 +3001,13 @@ apiRouter.put('/boms/:id', async (req: Request, res: Response) => {
     }
     const { id } = req.params;
     const saved = await dbManager.saveBOM({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'UPDATE_BOM',
+      entityType: 'bom',
+      entityId: id,
+      summary: `Updated BOM ${id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update BOM');
@@ -2393,6 +3024,13 @@ apiRouter.delete('/boms/:id', async (req: Request, res: Response) => {
       return res.status(403).json({ success: false, error: 'Forbidden: Customers have read-only access to Bill of Materials.' });
     }
     await dbManager.deleteBOM(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'DELETE_BOM',
+      entityType: 'bom',
+      entityId: req.params.id,
+      summary: `Deleted BOM ${req.params.id}`
+    });
     res.json({ success: true, message: 'BOM deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete BOM');
@@ -2400,9 +3038,17 @@ apiRouter.delete('/boms/:id', async (req: Request, res: Response) => {
 });
 
 // Sales Invoices
-apiRouter.get('/sales-invoices', async (_req: Request, res: Response) => {
+apiRouter.get('/sales-invoices', requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
-    const items = await dbManager.getSalesInvoices();
+    const user = (req as any).user;
+    let items = await dbManager.getSalesInvoices();
+    if (isCustomerUser(user)) {
+      const { custId, name } = getCustomerMatchTokens(user);
+      items = items.filter((inv: any) =>
+        (custId && inv.customerId === custId) ||
+        (name && String(inv.customerName || '').trim().toLowerCase() === name)
+      );
+    }
     res.json({ success: true, count: items.length, data: items });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to fetch sales invoices');
@@ -2631,7 +3277,7 @@ apiRouter.delete(['/vendor-sales-invoices/:id', '/vendor-sales-invoices/:id/'], 
 });
 
 // Warehouses
-apiRouter.get('/warehouses', async (_req: Request, res: Response) => {
+apiRouter.get('/warehouses', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getWarehouses();
     res.json({ success: true, count: items.length, data: items });
@@ -2640,44 +3286,50 @@ apiRouter.get('/warehouses', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/warehouses', async (req: Request, res: Response) => {
+apiRouter.post('/warehouses', requireRole(['Admin', 'Super Admin']), async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (user && !['Admin', 'Super Admin'].includes(user.role)) {
-      res.status(403).json({ success: false, error: 'Forbidden: Only Administrators can modify warehouses.' });
-      return;
-    }
     const wh = { ...req.body, id: req.body.id || `wh-${Date.now()}` };
     const saved = await dbManager.saveWarehouse(wh);
+    recordAuditFromReq(req, {
+      module: 'WAREHOUSE',
+      action: 'CREATE_WAREHOUSE',
+      entityType: 'warehouse',
+      entityId: saved.id,
+      summary: `Created warehouse ${saved.name || saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save warehouse');
   }
 });
 
-apiRouter.put('/warehouses/:id', async (req: Request, res: Response) => {
+apiRouter.put('/warehouses/:id', requireRole(['Admin', 'Super Admin']), async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (user && !['Admin', 'Super Admin'].includes(user.role)) {
-      res.status(403).json({ success: false, error: 'Forbidden: Only Administrators can modify warehouses.' });
-      return;
-    }
     const { id } = req.params;
     const saved = await dbManager.saveWarehouse({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'WAREHOUSE',
+      action: 'UPDATE_WAREHOUSE',
+      entityType: 'warehouse',
+      entityId: id,
+      summary: `Updated warehouse ${saved.name || id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update warehouse');
   }
 });
 
-apiRouter.delete('/warehouses/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/warehouses/:id', requireRole(['Admin', 'Super Admin']), async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (user && !['Admin', 'Super Admin'].includes(user.role)) {
-      res.status(403).json({ success: false, error: 'Forbidden: Only Administrators can delete warehouses.' });
-      return;
-    }
     await dbManager.deleteWarehouse(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'WAREHOUSE',
+      action: 'DELETE_WAREHOUSE',
+      entityType: 'warehouse',
+      entityId: req.params.id,
+      summary: `Deleted warehouse ${req.params.id}`
+    });
     res.json({ success: true, message: 'Warehouse deleted from MySQL.' });
   } catch (err: any) {
     if (String(err?.message || '').includes('Primary/Default warehouse')) {
@@ -2689,7 +3341,7 @@ apiRouter.delete('/warehouses/:id', async (req: Request, res: Response) => {
 });
 
 // Stock Movements
-apiRouter.get('/stock-movements', async (_req: Request, res: Response) => {
+apiRouter.get('/stock-movements', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getStockMovements();
     res.json({ success: true, count: items.length, data: items });
@@ -2698,10 +3350,17 @@ apiRouter.get('/stock-movements', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/stock-movements', async (req: Request, res: Response) => {
+apiRouter.post('/stock-movements', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const sm = { ...req.body, id: req.body.id || `sm-${Date.now()}` };
     const saved = await dbManager.saveStockMovement(sm);
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'STOCK_MOVEMENT',
+      entityType: 'stock_movement',
+      entityId: saved.id,
+      summary: `Recorded stock movement ${saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save stock movement');
@@ -2709,7 +3368,7 @@ apiRouter.post('/stock-movements', async (req: Request, res: Response) => {
 });
 
 // Stock Audits
-apiRouter.get('/stock-audits', async (_req: Request, res: Response) => {
+apiRouter.get('/stock-audits', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getStockAudits();
     res.json({ success: true, count: items.length, data: items });
@@ -2718,19 +3377,33 @@ apiRouter.get('/stock-audits', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/stock-audits', async (req: Request, res: Response) => {
+apiRouter.post('/stock-audits', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const sa = { ...req.body, id: req.body.id || `audit-${Date.now()}` };
     const saved = await dbManager.saveStockAudit(sa);
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'CREATE_STOCK_AUDIT',
+      entityType: 'stock_audit',
+      entityId: saved.id,
+      summary: `Recorded stock audit ${saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save stock audit');
   }
 });
 
-apiRouter.delete('/stock-audits/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/stock-audits/:id', requireRole(['Admin', 'Super Admin']), async (req: Request, res: Response) => {
   try {
     await dbManager.deleteStockAudit(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'INVENTORY',
+      action: 'DELETE_STOCK_AUDIT',
+      entityType: 'stock_audit',
+      entityId: req.params.id,
+      summary: `Deleted stock audit ${req.params.id}`
+    });
     res.json({ success: true, message: 'Stock audit deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete stock audit');
@@ -2741,38 +3414,67 @@ apiRouter.delete('/stock-audits/:id', async (req: Request, res: Response) => {
 // 9. QUOTATIONS & SITE SURVEYS APIS
 // ==========================================================
 
-apiRouter.get('/quotations', async (_req: Request, res: Response) => {
+apiRouter.get('/quotations', requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
-    const items = await dbManager.getQuotations();
+    const user = (req as any).user;
+    let items = await dbManager.getQuotations();
+    if (isCustomerUser(user)) {
+      const { custId, name } = getCustomerMatchTokens(user);
+      items = items.filter((q: any) =>
+        (custId && q.customerId === custId) ||
+        (name && String(q.customerName || '').trim().toLowerCase() === name)
+      );
+    }
     res.json({ success: true, count: items.length, data: items });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to fetch quotations');
   }
 });
 
-apiRouter.post('/quotations', async (req: Request, res: Response) => {
+apiRouter.post('/quotations', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const q = { ...req.body, id: req.body.id || `quote-${Date.now()}` };
     const saved = await dbManager.saveQuotation(q);
+    recordAuditFromReq(req, {
+      module: 'CRM',
+      action: 'CREATE_QUOTATION',
+      entityType: 'quotation',
+      entityId: saved.id,
+      summary: `Created quotation ${saved.quoteNumber || saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save quotation');
   }
 });
 
-apiRouter.put('/quotations/:id', async (req: Request, res: Response) => {
+apiRouter.put('/quotations/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const saved = await dbManager.saveQuotation({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'CRM',
+      action: 'UPDATE_QUOTATION',
+      entityType: 'quotation',
+      entityId: id,
+      summary: `Updated quotation ${saved.quoteNumber || id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update quotation');
   }
 });
 
-apiRouter.delete('/quotations/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/quotations/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     await dbManager.deleteQuotation(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'CRM',
+      action: 'DELETE_QUOTATION',
+      entityType: 'quotation',
+      entityId: req.params.id,
+      summary: `Deleted quotation ${req.params.id}`
+    });
     res.json({ success: true, message: 'Quotation deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete quotation');
@@ -2780,7 +3482,7 @@ apiRouter.delete('/quotations/:id', async (req: Request, res: Response) => {
 });
 
 // Site Surveys
-apiRouter.get('/surveys', async (_req: Request, res: Response) => {
+apiRouter.get('/surveys', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getSurveys();
     res.json({ success: true, count: items.length, data: items });
@@ -2789,29 +3491,50 @@ apiRouter.get('/surveys', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/surveys', async (req: Request, res: Response) => {
+apiRouter.post('/surveys', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const s = { ...req.body, id: req.body.id || `surv-${Date.now()}` };
     const saved = await dbManager.saveSurvey(s);
+    recordAuditFromReq(req, {
+      module: 'SURVEYS',
+      action: 'CREATE_SURVEY',
+      entityType: 'survey',
+      entityId: saved.id,
+      summary: `Created site survey ${saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save survey');
   }
 });
 
-apiRouter.put('/surveys/:id', async (req: Request, res: Response) => {
+apiRouter.put('/surveys/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const saved = await dbManager.saveSurvey({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'SURVEYS',
+      action: 'UPDATE_SURVEY',
+      entityType: 'survey',
+      entityId: id,
+      summary: `Updated site survey ${id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update survey');
   }
 });
 
-apiRouter.delete('/surveys/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/surveys/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     await dbManager.deleteSurvey(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'SURVEYS',
+      action: 'DELETE_SURVEY',
+      entityType: 'survey',
+      entityId: req.params.id,
+      summary: `Deleted site survey ${req.params.id}`
+    });
     res.json({ success: true, message: 'Survey deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete survey');
@@ -2822,19 +3545,34 @@ apiRouter.delete('/surveys/:id', async (req: Request, res: Response) => {
 // 10. FINANCE (PAYMENTS & EXPENSES)
 // ==========================================================
 
-apiRouter.get('/payments', async (_req: Request, res: Response) => {
+apiRouter.get('/payments', requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
-    const items = await dbManager.getPayments();
+    const user = (req as any).user;
+    let items = await dbManager.getPayments();
+    if (isCustomerUser(user)) {
+      const { custId, name } = getCustomerMatchTokens(user);
+      items = items.filter((p: any) =>
+        (custId && p.customerId === custId) ||
+        (name && String(p.customerName || '').trim().toLowerCase() === name)
+      );
+    }
     res.json({ success: true, count: items.length, data: items });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to fetch payments');
   }
 });
 
-apiRouter.post('/payments', async (req: Request, res: Response) => {
+apiRouter.post('/payments', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const pay = { ...req.body, id: req.body.id || `pay-${Date.now()}` };
     const saved = await dbManager.savePayment(pay);
+    recordAuditFromReq(req, {
+      module: 'FINANCE',
+      action: 'CREATE_PAYMENT',
+      entityType: 'payment',
+      entityId: saved.id,
+      summary: `Recorded payment ${saved.id} (₹${saved.amount || 0})`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save payment');
@@ -2842,7 +3580,7 @@ apiRouter.post('/payments', async (req: Request, res: Response) => {
 });
 
 // Batch Payment Import (Excel / CSV Hub)
-apiRouter.post(['/payments/import', '/payments/import/'], async (req: Request, res: Response) => {
+apiRouter.post(['/payments/import', '/payments/import/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { payments, rows } = req.body || {};
     const list = Array.isArray(payments) ? payments : (Array.isArray(rows) ? rows : (Array.isArray(req.body) ? req.body : []));
@@ -2851,6 +3589,12 @@ apiRouter.post(['/payments/import', '/payments/import/'], async (req: Request, r
       return;
     }
     const result = await dbManager.importPayments(list);
+    recordAuditFromReq(req, {
+      module: 'FINANCE',
+      action: 'IMPORT_PAYMENTS',
+      entityType: 'payment',
+      summary: `Imported ${result.imported || list.length} payments`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Payment Import Error]:', err);
@@ -2863,16 +3607,23 @@ apiRouter.post(['/payments/import', '/payments/import/'], async (req: Request, r
   }
 });
 
-apiRouter.delete('/payments/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/payments/:id', requireRole(['Admin', 'Super Admin', 'Accountant']), async (req: Request, res: Response) => {
   try {
     await dbManager.deletePayment(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'FINANCE',
+      action: 'DELETE_PAYMENT',
+      entityType: 'payment',
+      entityId: req.params.id,
+      summary: `Deleted payment ${req.params.id}`
+    });
     res.json({ success: true, message: 'Payment deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete payment');
   }
 });
 
-apiRouter.get('/expenses', async (_req: Request, res: Response) => {
+apiRouter.get('/expenses', requireStaffUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getExpenses();
     res.json({ success: true, count: items.length, data: items });
@@ -2881,10 +3632,17 @@ apiRouter.get('/expenses', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/expenses', async (req: Request, res: Response) => {
+apiRouter.post('/expenses', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const ex = { ...req.body, id: req.body.id || `exp-${Date.now()}` };
     const saved = await dbManager.saveExpense(ex);
+    recordAuditFromReq(req, {
+      module: 'FINANCE',
+      action: 'CREATE_EXPENSE',
+      entityType: 'expense',
+      entityId: saved.id,
+      summary: `Recorded expense ${saved.id} (₹${saved.amount || 0})`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save expense');
@@ -2892,7 +3650,7 @@ apiRouter.post('/expenses', async (req: Request, res: Response) => {
 });
 
 // Batch Expense Import (Excel / CSV Hub)
-apiRouter.post(['/expenses/import', '/expenses/import/'], async (req: Request, res: Response) => {
+apiRouter.post(['/expenses/import', '/expenses/import/'], requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { expenses, rows } = req.body || {};
     const list = Array.isArray(expenses) ? expenses : (Array.isArray(rows) ? rows : (Array.isArray(req.body) ? req.body : []));
@@ -2901,6 +3659,12 @@ apiRouter.post(['/expenses/import', '/expenses/import/'], async (req: Request, r
       return;
     }
     const result = await dbManager.importExpenses(list);
+    recordAuditFromReq(req, {
+      module: 'FINANCE',
+      action: 'IMPORT_EXPENSES',
+      entityType: 'expense',
+      summary: `Imported ${result.imported || list.length} expenses`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Expense Import Error]:', err);
@@ -2913,9 +3677,16 @@ apiRouter.post(['/expenses/import', '/expenses/import/'], async (req: Request, r
   }
 });
 
-apiRouter.delete('/expenses/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/expenses/:id', requireRole(['Admin', 'Super Admin', 'Accountant']), async (req: Request, res: Response) => {
   try {
     await dbManager.deleteExpense(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'FINANCE',
+      action: 'DELETE_EXPENSE',
+      entityType: 'expense',
+      entityId: req.params.id,
+      summary: `Deleted expense ${req.params.id}`
+    });
     res.json({ success: true, message: 'Expense deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete expense');
@@ -3027,6 +3798,13 @@ apiRouter.post('/service-tickets', async (req: Request, res: Response) => {
     }
 
     const saved = await dbManager.saveServiceTicket(tk, user);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'CREATE_TICKET',
+      entityType: 'service_ticket',
+      entityId: saved.id,
+      summary: `Created service ticket ${saved.ticketNumber || saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save service ticket');
@@ -3043,6 +3821,12 @@ apiRouter.post(['/service-tickets/import', '/service/import', '/service-tickets/
       return;
     }
     const result = await dbManager.importServiceTickets(list);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'IMPORT_TICKETS',
+      entityType: 'service_ticket',
+      summary: `Imported ${result.imported || list.length} service tickets`
+    });
     res.json(result);
   } catch (err: any) {
     console.error('[MySQL Service Ticket Import Error]:', err);
@@ -3060,6 +3844,13 @@ apiRouter.put('/service-tickets/:id/assign', requireAdminOnly, async (req: Reque
   try {
     const actor = (req as any).user;
     const updated = await dbManager.assignServiceTicketTechnician(req.params.id, req.body || {}, actor);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'ASSIGN_TECHNICIAN',
+      entityType: 'service_ticket',
+      entityId: req.params.id,
+      summary: `Updated technician assignment for ticket ${req.params.id}`
+    });
     res.json({ success: true, data: updated, message: 'Technician assignment updated in MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update technician assignment');
@@ -3070,6 +3861,13 @@ apiRouter.post('/service-tickets/:id/assign', requireAdminOnly, async (req: Requ
   try {
     const actor = (req as any).user;
     const updated = await dbManager.assignServiceTicketTechnician(req.params.id, req.body || {}, actor);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'ASSIGN_TECHNICIAN',
+      entityType: 'service_ticket',
+      entityId: req.params.id,
+      summary: `Updated technician assignment for ticket ${req.params.id}`
+    });
     res.json({ success: true, data: updated, message: 'Technician assignment updated in MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update technician assignment');
@@ -3081,6 +3879,13 @@ apiRouter.put('/service-tickets/:id/admin-update', requireAdminOnly, async (req:
   try {
     const actor = (req as any).user;
     const updated = await dbManager.adminUpdateServiceTicket(req.params.id, req.body || {}, actor);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'UPDATE_TICKET',
+      entityType: 'service_ticket',
+      entityId: req.params.id,
+      summary: `Updated service ticket ${req.params.id}`
+    });
     res.json({ success: true, data: updated, message: 'Service ticket updated in MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update service ticket');
@@ -3091,6 +3896,13 @@ apiRouter.patch('/service-tickets/:id/admin-update', requireAdminOnly, async (re
   try {
     const actor = (req as any).user;
     const updated = await dbManager.adminUpdateServiceTicket(req.params.id, req.body || {}, actor);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'UPDATE_TICKET',
+      entityType: 'service_ticket',
+      entityId: req.params.id,
+      summary: `Patched service ticket ${req.params.id}`
+    });
     res.json({ success: true, data: updated, message: 'Service ticket updated in MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update service ticket');
@@ -3101,6 +3913,13 @@ apiRouter.put('/service-tickets/:id', requireAdminOnly, async (req: Request, res
   try {
     const actor = (req as any).user;
     const updated = await dbManager.adminUpdateServiceTicket(req.params.id, req.body || {}, actor);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'UPDATE_TICKET',
+      entityType: 'service_ticket',
+      entityId: req.params.id,
+      summary: `Updated service ticket ${req.params.id}`
+    });
     res.json({ success: true, data: updated, message: 'Service ticket updated in MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update service ticket');
@@ -3110,44 +3929,80 @@ apiRouter.put('/service-tickets/:id', requireAdminOnly, async (req: Request, res
 apiRouter.delete('/service-tickets/:id', requireAdminOnly, async (req: Request, res: Response) => {
   try {
     await dbManager.deleteServiceTicket(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'DELETE_TICKET',
+      entityType: 'service_ticket',
+      entityId: req.params.id,
+      summary: `Deleted service ticket ${req.params.id}`
+    });
     res.json({ success: true, message: 'Service ticket deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete service ticket');
   }
 });
 
-apiRouter.get('/amc-contracts', async (_req: Request, res: Response) => {
+apiRouter.get('/amc-contracts', requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
-    const items = await dbManager.getAMCContracts();
+    const user = (req as any).user;
+    let items = await dbManager.getAMCContracts();
+    if (isCustomerUser(user)) {
+      const { custId, name } = getCustomerMatchTokens(user);
+      items = items.filter((a: any) =>
+        (custId && a.customerId === custId) ||
+        (name && String(a.customerName || '').trim().toLowerCase() === name)
+      );
+    }
     res.json({ success: true, count: items.length, data: items });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to fetch AMC contracts');
   }
 });
 
-apiRouter.post('/amc-contracts', async (req: Request, res: Response) => {
+apiRouter.post('/amc-contracts', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const amc = { ...req.body, id: req.body.id || `amc-${Date.now()}` };
     const saved = await dbManager.saveAMCContract(amc);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'CREATE_AMC',
+      entityType: 'amc_contract',
+      entityId: saved.id,
+      summary: `Created AMC contract ${saved.id}`
+    });
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save AMC contract');
   }
 });
 
-apiRouter.put('/amc-contracts/:id', async (req: Request, res: Response) => {
+apiRouter.put('/amc-contracts/:id', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const saved = await dbManager.saveAMCContract({ ...req.body, id });
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'UPDATE_AMC',
+      entityType: 'amc_contract',
+      entityId: id,
+      summary: `Updated AMC contract ${id}`
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to update AMC contract');
   }
 });
 
-apiRouter.delete('/amc-contracts/:id', async (req: Request, res: Response) => {
+apiRouter.delete('/amc-contracts/:id', requireRole(['Admin', 'Super Admin']), async (req: Request, res: Response) => {
   try {
     await dbManager.deleteAMCContract(req.params.id);
+    recordAuditFromReq(req, {
+      module: 'SERVICE',
+      action: 'DELETE_AMC',
+      entityType: 'amc_contract',
+      entityId: req.params.id,
+      summary: `Deleted AMC contract ${req.params.id}`
+    });
     res.json({ success: true, message: 'AMC contract deleted from MySQL.' });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to delete AMC contract');
@@ -3158,7 +4013,7 @@ apiRouter.delete('/amc-contracts/:id', async (req: Request, res: Response) => {
 // 12. NOTIFICATIONS & SYSTEM SETTINGS
 // ==========================================================
 
-apiRouter.get('/notifications', async (_req: Request, res: Response) => {
+apiRouter.get('/notifications', requireAuthenticatedUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getNotifications();
     res.json({ success: true, count: items.length, data: items });
@@ -3167,7 +4022,7 @@ apiRouter.get('/notifications', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/notifications', async (req: Request, res: Response) => {
+apiRouter.post('/notifications', requireStaffUser, async (req: Request, res: Response) => {
   try {
     const n = { ...req.body, id: req.body.id || `notif-${Date.now()}` };
     const saved = await dbManager.saveNotification(n);
@@ -3177,7 +4032,7 @@ apiRouter.post('/notifications', async (req: Request, res: Response) => {
   }
 });
 
-apiRouter.put('/notifications/:id/read', async (req: Request, res: Response) => {
+apiRouter.put('/notifications/:id/read', requireAuthenticatedUser, async (req: Request, res: Response) => {
   try {
     const items = await dbManager.getNotifications();
     const target = items.find((n: any) => n.id === req.params.id);
@@ -3191,7 +4046,7 @@ apiRouter.put('/notifications/:id/read', async (req: Request, res: Response) => 
   }
 });
 
-apiRouter.put('/notifications/mark-all-read', async (_req: Request, res: Response) => {
+apiRouter.put('/notifications/mark-all-read', requireAuthenticatedUser, async (_req: Request, res: Response) => {
   try {
     const items = await dbManager.getNotifications();
     for (const n of items) {
@@ -3207,7 +4062,7 @@ apiRouter.put('/notifications/mark-all-read', async (_req: Request, res: Respons
 });
 
 // System Settings
-apiRouter.get('/settings', async (_req: Request, res: Response) => {
+apiRouter.get('/settings', requireAuthenticatedUser, async (_req: Request, res: Response) => {
   try {
     const s = await dbManager.getSettings();
     res.json({ success: true, data: s });
@@ -3216,10 +4071,16 @@ apiRouter.get('/settings', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/settings', async (req: Request, res: Response) => {
+apiRouter.post('/settings', requireRole(['Admin', 'Super Admin']), async (req: Request, res: Response) => {
   try {
     const s = req.body || {};
     const saved = await dbManager.saveSettings(s);
+    recordAuditFromReq(req, {
+      module: 'SETTINGS',
+      action: 'UPDATE_SETTINGS',
+      entityType: 'system_settings',
+      summary: 'Updated ERP system settings'
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save settings');
@@ -3446,7 +4307,7 @@ apiRouter.post('/email/send', async (req: Request, res: Response) => {
 });
 
 // ACL Config & Audit Logs
-apiRouter.get('/acl/config', async (_req: Request, res: Response) => {
+apiRouter.get('/acl/config', requireAuthenticatedUser, async (_req: Request, res: Response) => {
   try {
     const cfg = await dbManager.getAclConfig();
     res.json({ success: true, data: cfg });
@@ -3455,17 +4316,23 @@ apiRouter.get('/acl/config', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/acl/config', async (req: Request, res: Response) => {
+apiRouter.post('/acl/config', requireRole(['Admin', 'Super Admin']), async (req: Request, res: Response) => {
   try {
     const cfg = req.body || {};
     const saved = await dbManager.saveAclConfig(cfg);
+    recordAuditFromReq(req, {
+      module: 'ACL',
+      action: 'UPDATE_ACL_CONFIG',
+      entityType: 'acl_config',
+      summary: 'Updated Role-Based Access Control matrix'
+    });
     res.json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to save ACL config');
   }
 });
 
-apiRouter.get('/acl/audit-logs', async (_req: Request, res: Response) => {
+apiRouter.get('/acl/audit-logs', requireRole(['Admin', 'Super Admin']), async (_req: Request, res: Response) => {
   try {
     const logs = await dbManager.getAclAuditLogs();
     res.json({ success: true, data: logs });
@@ -3474,13 +4341,27 @@ apiRouter.get('/acl/audit-logs', async (_req: Request, res: Response) => {
   }
 });
 
-apiRouter.post('/acl/audit-logs', async (req: Request, res: Response) => {
+apiRouter.post('/acl/audit-logs', requireRole(['Admin', 'Super Admin']), async (req: Request, res: Response) => {
   try {
     const log = req.body || {};
     const saved = await dbManager.addAclAuditLog(log);
     res.status(201).json({ success: true, data: saved });
   } catch (err: any) {
     sendApiError(res, err, 'Failed to add ACL audit log');
+  }
+});
+
+// Centralized Production System Audit Logs API
+apiRouter.get('/audit-logs', requireRole(['Admin', 'Super Admin', 'HR Manager', 'Accountant']), async (req: Request, res: Response) => {
+  try {
+    const module = typeof req.query.module === 'string' ? req.query.module : undefined;
+    const action = typeof req.query.action === 'string' ? req.query.action : undefined;
+    const actorId = typeof req.query.actorId === 'string' ? req.query.actorId : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : 200;
+    const data = await dbManager.getAuditLogs({ module, action, actorId, limit });
+    res.json({ success: true, count: data.length, data });
+  } catch (err: any) {
+    sendApiError(res, err, 'Failed to fetch system audit logs');
   }
 });
 

@@ -12,6 +12,7 @@ import { DeleteConfirmDialog } from '../hrms/DeleteConfirmDialog';
 import { PayslipGeneratorModal } from '../hrms/PayslipGeneratorModal';
 import { PayslipViewModal } from '../hrms/PayslipViewModal';
 import { LeaveManagementView } from '../hrms/LeaveManagementView';
+import { AuthenticatedImage } from '../common/AuthenticatedImage';
 import { getCurrentSalaryMonth, getYearGroupedSalaryPeriods } from '../../utils/payrollPeriods';
 import {
   MapPin,
@@ -744,14 +745,11 @@ export const HrmsView: React.FC = () => {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 overflow-hidden">
                         {e.photoUrl ? (
-                          <img
+                          <AuthenticatedImage
                             src={e.photoUrl}
                             alt={e.name}
                             className="w-full h-full object-cover"
-                            onError={(ev) => {
-                              // Fallback on broken images
-                              (ev.target as HTMLElement).style.display = 'none';
-                            }}
+                            fallback={<span>{(e.name || 'EM').slice(0, 2).toUpperCase()}</span>}
                           />
                         ) : (
                           <span>{(e.name || 'EM').slice(0, 2).toUpperCase()}</span>
