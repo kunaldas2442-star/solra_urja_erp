@@ -210,7 +210,7 @@ export const CustomerPortalView: React.FC = () => {
         <div className="flex items-center gap-3">
           <Phone className="w-4 h-4 text-amber-600 shrink-0" />
           <div>
-            <span className="font-bold text-slate-800">Direct SolarPulse EPC Project Desk:</span>
+            <span className="font-bold text-slate-800">Direct Solar Urja ERP Project Desk:</span>
             <span className="text-slate-600 ml-1">+91 98250 12345 (EPC Operations & Engineering Support)</span>
           </div>
         </div>

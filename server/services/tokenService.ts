@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-const TOKEN_SECRET = process.env.SESSION_SECRET || 'rejoy-solar-epc-erp-production-secret-2026';
+const TOKEN_SECRET = process.env.SESSION_SECRET || 'solar-urja-erp-production-secret-2026';
 const TOKEN_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days session lifetime
 
 export interface AuthTokenPayload {

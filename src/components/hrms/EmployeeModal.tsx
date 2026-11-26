@@ -125,7 +125,7 @@ function generateSecurePassword(): string {
   for (let i = 0; i < 6; i++) {
     rand += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return `Rejoy@${rand}`;
+  return `SolarUrja@${rand}`;
 }
 
 const DOCUMENT_CATEGORIES: EmployeeDocumentCategory[] = [
@@ -953,7 +953,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                 required
                 value={formData.email}
                 onChange={e => handleEmailChange(e.target.value)}
-                placeholder="vikram@solarpulse.com"
+                placeholder="employee@solar.klyiatechnology.com"
                 className={`w-full text-xs border rounded-xl p-2.5 bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 ${
                   errors.email ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'
                 }`}
@@ -1194,7 +1194,7 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
                         required
                         value={loginEmail}
                         onChange={e => setLoginEmail(e.target.value)}
-                        placeholder="employee@solarpulse.com"
+                        placeholder="employee@solar.klyiatechnology.com"
                         className={`w-full text-xs border rounded-xl p-2.5 bg-white focus:outline-hidden focus:ring-2 focus:ring-amber-500 ${
                           errors.loginEmail ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'
                         }`}

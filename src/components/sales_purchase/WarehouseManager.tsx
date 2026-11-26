@@ -874,7 +874,7 @@ export const WarehouseManager: React.FC = () => {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="depot@rejoysolar.com"
+                    placeholder="depot@solar.klyiatechnology.com"
                     className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl"
                   />
                 </div>

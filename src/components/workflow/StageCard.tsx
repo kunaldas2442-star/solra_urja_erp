@@ -751,7 +751,7 @@ export const StageCard: React.FC<StageCardProps> = ({
                 <div className="flex items-center gap-2">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 select-none">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Read-Only Stage View (Maintained by Rejoy Solar Engineering Team)</span>
+                    <span>Read-Only Stage View (Maintained by Solar Urja Engineering Team)</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

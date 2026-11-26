@@ -71,24 +71,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
   };
 
   const navItemClass = (isActive: boolean) =>
-    `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors select-none ${
+    `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-colors select-none ${
       isActive
-        ? 'bg-amber-500 text-white shadow-xs'
-        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+        ? 'bg-[#0F2954] text-white shadow-xs'
+        : 'text-slate-600 hover:text-[#0F2954] hover:bg-slate-100/80'
     }`;
 
   const subNavItemClass = (isActive: boolean) =>
-    `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-colors select-none ${
+    `w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold transition-colors select-none ${
       isActive
-        ? 'bg-amber-500 text-white shadow-xs'
-        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+        ? 'bg-[#0F2954] text-white shadow-xs'
+        : 'text-slate-600 hover:text-[#0F2954] hover:bg-slate-100/80'
     }`;
 
   const parentNavItemClass = (isExactActive: boolean, _isChildActive: boolean) =>
-    `w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer select-none ${
+    `w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer select-none ${
       isExactActive
-        ? 'bg-amber-500 text-white shadow-xs'
-        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+        ? 'bg-[#0F2954] text-white shadow-xs'
+        : 'text-slate-600 hover:text-[#0F2954] hover:bg-slate-100/80'
     }`;
 
   return (
@@ -185,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                     }}
                     className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-slate-600 transition-colors select-none"
                   >
-                    <span className={isCrmActive ? 'text-amber-600 font-bold' : ''}>CRM & Leads</span>
+                    <span className={isCrmActive ? 'text-[#EA580C] font-bold' : ''}>CRM & Leads</span>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -430,15 +430,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onCloseMobile }) => {
                 <div className="space-y-1">
                   <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                     <span>Field Dispatch</span>
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   </div>
                   <button
                     onClick={() => navigateTo('live_tracking')}
                     className={navItemClass(activeView === 'live_tracking')}
                   >
-                    <Navigation className="w-4 h-4 text-amber-500" />
+                    <Navigation className="w-4 h-4 text-[#16A34A]" />
                     <span className="flex-1 text-left">Live Field Tracking</span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
                       LIVE
                     </span>
                   </button>

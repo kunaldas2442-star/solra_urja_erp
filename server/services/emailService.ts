@@ -71,7 +71,7 @@ function deriveEncryptionKey(): Buffer {
   const secretMaterial =
     process.env.EMAIL_ENCRYPTION_KEY ||
     process.env.SESSION_SECRET ||
-    'rejoy-solar-epc-erp-email-kms-2026';
+    'solar-urja-erp-email-kms-2026';
   return crypto.createHash('sha256').update(secretMaterial, 'utf8').digest();
 }
 
@@ -122,7 +122,7 @@ export function sanitizeEmailConfig(row: EmailSettingsRecord | null | undefined)
       smtpHost: DEFAULT_SMTP_HOST,
       smtpPort: 587,
       smtpSecurity: 'TLS',
-      senderName: 'Rejoy Solar ERP',
+      senderName: 'Solar Urja ERP',
       enabled: true,
       lastTestedAt: null,
       lastTestStatus: null,
@@ -142,7 +142,7 @@ export function sanitizeEmailConfig(row: EmailSettingsRecord | null | undefined)
     smtpHost: row.smtp_host || DEFAULT_SMTP_HOST,
     smtpPort: Number(row.smtp_port) || (security === 'SSL' ? 465 : 587),
     smtpSecurity: security,
-    senderName: row.sender_name || 'Rejoy Solar ERP',
+    senderName: row.sender_name || 'Solar Urja ERP',
     enabled: row.enabled === 1 || row.enabled === true,
     lastTestedAt: row.last_tested_at || null,
     lastTestStatus: row.last_test_status || null,
@@ -180,7 +180,7 @@ export function validateEmailConfigInput(
     return { valid: false, error: 'SMTP port must be a valid integer between 1 and 65535.' };
   }
 
-  const senderName = String(body?.senderName || '').trim() || 'Rejoy Solar ERP';
+  const senderName = String(body?.senderName || '').trim() || 'Solar Urja ERP';
   if (senderName.length > 150) {
     return { valid: false, error: 'Sender name must be 150 characters or fewer.' };
   }
@@ -277,7 +277,7 @@ export function formatSmtpError(err: any): string {
 }
 
 function formatFromHeader(senderName: string, gmailAddress: string): string {
-  const cleanName = String(senderName || 'Rejoy Solar ERP').replace(/["\r\n<>]/g, '').trim();
+  const cleanName = String(senderName || 'Solar Urja ERP').replace(/["\r\n<>]/g, '').trim();
   return cleanName ? `"${cleanName}" <${gmailAddress}>` : gmailAddress;
 }
 
@@ -305,9 +305,9 @@ export async function verifyAndSendTestEmail(params: {
   const info = await transporter.sendMail({
     from: formatFromHeader(params.config.senderName, params.config.gmailAddress),
     to: recipient,
-    subject: 'Rejoy Solar ERP — Gmail SMTP Configuration Test',
+    subject: 'Solar Urja ERP — Gmail SMTP Configuration Test',
     text: [
-      'Rejoy Solar EPC ERP — Gmail SMTP Verification',
+      'Solar Urja ERP (solar.klyiatechnology.com) — Gmail SMTP Verification',
       '',
       'Your Gmail SMTP configuration has been verified and is active.',
       `Sender Name: ${params.config.senderName}`,
@@ -318,9 +318,9 @@ export async function verifyAndSendTestEmail(params: {
     ].join('\n'),
     html: `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-        <div style="background: #0f172a; color: #ffffff; padding: 20px 24px;">
-          <h2 style="margin: 0; font-size: 18px; color: #f59e0b;">Rejoy Solar ERP — Email Verified</h2>
-          <p style="margin: 4px 0 0; font-size: 12px; color: #cbd5e1;">Gmail SMTP Configuration Test Successful</p>
+        <div style="background: #0f2954; color: #ffffff; padding: 20px 24px;">
+          <h2 style="margin: 0; font-size: 18px; color: #f97316;">Solar Urja ERP — Email Verified</h2>
+          <p style="margin: 4px 0 0; font-size: 12px; color: #cbd5e1;">solar.klyiatechnology.com • Gmail SMTP Configuration Test Successful</p>
         </div>
         <div style="padding: 20px 24px; color: #1e293b; font-size: 14px; line-height: 1.6;">
           <p style="margin-top: 0;">Your ERP application email gateway is connected and working correctly.</p>

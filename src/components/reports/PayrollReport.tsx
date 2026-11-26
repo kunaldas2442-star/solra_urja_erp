@@ -137,7 +137,7 @@ export const PayrollReport: React.FC<PayrollReportProps> = ({
       ps.paymentDate || 'N/A',
       ps.bankReferenceNo || 'N/A'
     ]);
-    exportToCSV(`SolarPulse_Payroll_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Payroll_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Payroll report exported to CSV', 'success');
   };
 

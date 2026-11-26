@@ -133,16 +133,16 @@ const initialPurchaseReturns: PurchaseReturn[] = [];
 const initialStockMovements: StockMovement[] = [];
 
 const initialSettings: SystemSettings = {
-  companyName: 'REJOY SOLAR POWER PVT. LTD',
+  companyName: 'SOLAR URJA ERP',
   companyAddress: 'PLOT NO- 14, STREET NO- 14B, PRAGATI NAGAR, RISALI BHILAI, Chhattisgarh 490006',
   companyPhone: '+91 98250 12345',
-  companyEmail: 'rejoysolarpower@gmail.com',
+  companyEmail: 'support@solar.klyiatechnology.com',
   companyGst: '22AAOCR0748K1Z5',
-  logoUrl: '/logo-dark.png',
+  logoUrl: '/assets/aistudio/solar_urja_logo_07b84efe.jpeg',
   currencySymbol: '₹',
   taxRatePercent: 18,
   tallyServerUrl: (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_TALLY_SERVER_URL) ? import.meta.env.VITE_TALLY_SERVER_URL : '',
-  tallyCompany: 'Rejoy Solar 2026-27',
+  tallyCompany: 'Solar Urja 2026-27',
   tallyStatus: 'NOT CONFIGURED',
   whatsAppStatus: 'SANDBOX_READY'
 };
@@ -2723,8 +2723,8 @@ class StorageService {
   // --- Settings ---
   getSettings(): SystemSettings {
     const settings = this.get<SystemSettings>(STORAGE_KEYS.SETTINGS, initialSettings);
-    if (!settings.logoUrl) {
-      settings.logoUrl = initialSettings.logoUrl || '/logo-dark.png';
+    if (!settings.logoUrl || settings.logoUrl === '/logo-dark.png') {
+      settings.logoUrl = initialSettings.logoUrl || '/assets/aistudio/solar_urja_logo_07b84efe.jpeg';
     }
     return settings;
   }

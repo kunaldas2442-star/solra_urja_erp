@@ -347,9 +347,9 @@ export const EWayBillModal: React.FC<EWayBillModalProps> = ({
   const fromState = selectedWarehouse.state || 'Chhattisgarh';
   const fromStateCode = getStateCode(fromState);
 
-  const companyName = settings.companyName || 'REJOY SOLAR POWER PVT. LTD';
+  const companyName = settings.companyName || 'SOLAR URJA ERP';
   const companyGstin = settings.companyGst || '22AAOCR0748K1Z5';
-  const companyEmail = selectedWarehouse.email || settings.companyEmail || 'rejoysolarpower@gmail.com';
+  const companyEmail = selectedWarehouse.email || settings.companyEmail || 'support@solar.klyiatechnology.com';
 
   const handleCopyEwb = () => {
     navigator.clipboard.writeText(ewbNumber.replace(/\s+/g, ''));
@@ -412,8 +412,8 @@ export const EWayBillModal: React.FC<EWayBillModalProps> = ({
           docType: 'INV',
           docNo: docNumber,
           docDate: docDate.split('-').reverse().join('/'),
-          fromGstin: '22AAOCR0748K1Z5',
-          fromTrdName: 'REJOY SOLAR POWER PVT. LTD',
+          fromGstin: companyGstin,
+          fromTrdName: companyName,
           fromAddr1: selectedWarehouse.address,
           fromPlace: selectedWarehouse.city,
           fromPincode: Number(selectedWarehouse.pincode) || 490006,

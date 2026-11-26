@@ -151,7 +151,7 @@ export const ProjectReport: React.FC<ProjectReportProps> = ({
       p.panelModel || 'N/A',
       p.inverterModel || 'N/A'
     ]);
-    exportToCSV(`SolarPulse_Projects_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Projects_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Projects report exported to CSV', 'success');
   };
 

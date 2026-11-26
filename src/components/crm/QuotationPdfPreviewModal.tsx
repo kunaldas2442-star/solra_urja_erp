@@ -71,7 +71,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
   };
 
   const handlePrint = () => {
-    void triggerSafeWindowPrint(['/logo-dark.png']);
+    void triggerSafeWindowPrint(['/assets/aistudio/solar_urja_logo_07b84efe.jpeg']);
   };
 
   const handleDownload = () => {
@@ -126,7 +126,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
     return (
       <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-[9px] text-slate-500 font-medium z-10 shrink-0">
         <div>
-          Rejoy Solar Power Pvt. Ltd. | CREDA Approved Solar EPC Contractor | An ISO 9001:2015 Certified Co.
+          Solar Urja ERP (solar.klyiatechnology.com) | CREDA Approved Solar EPC Contractor | An ISO 9001:2015 Certified Co.
         </div>
         <div className="font-bold text-slate-700">
           Ref: {quotation.quotationNumber} | Page {padNum} of 10
@@ -140,14 +140,14 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
     return (
       <div className="flex items-center justify-between pb-2 border-b border-slate-200 z-10 shrink-0">
         <div className="flex items-center gap-2.5">
-          <img src="/logo-dark.png" alt="Rejoy Solar" className="h-8 w-auto object-contain" />
+          <img src="/assets/aistudio/solar_urja_logo_07b84efe.jpeg" alt="Solar Urja ERP" className="h-8 w-auto object-contain" />
           <div>
-            <span className="font-black text-xs text-amber-700 tracking-wider">REJOY SOLAR</span>
-            <span className="text-[10px] text-slate-500 block -mt-1 font-semibold">POWER PVT. LTD.</span>
+            <span className="font-black text-xs text-[#0F2954] tracking-wider">SOLAR URJA ERP</span>
+            <span className="text-[10px] text-[#16A34A] block -mt-1 font-semibold">solar.klyiatechnology.com</span>
           </div>
         </div>
         <div className="text-right">
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 block">
+          <span className="text-[10px] font-black uppercase tracking-wider text-[#EA580C] block">
             {pageTitle}
           </span>
           <span className="text-[9px] text-slate-400 font-medium">CREDA Approved Solar EPC</span>
@@ -264,7 +264,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
                     Prepared By (Solar EPC Contractor)
                   </div>
                   <div className="p-3 text-xs space-y-1 text-slate-600">
-                    <p className="font-bold text-amber-600 text-sm">Rejoy Solar Power Pvt. Ltd.</p>
+                    <p className="font-bold text-[#0F2954] text-sm">Solar Urja ERP</p>
                     <p className="font-semibold text-slate-700 text-[11px]">CREDA Approved Solar Rooftop EPC Contractor</p>
                     <p className="text-[11px] leading-tight">Plot No. 14, St. 14/b, Pragati Nagar Risali, Bhilai, CG</p>
                     <p className="text-[11px] text-slate-500">Branch Office: Raipur, Chhattisgarh - 492001</p>
@@ -272,10 +272,10 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
                       <span className="font-semibold text-slate-700">Helpline:</span> +91 97705 77527 / +91 78038 44457
                     </p>
                     <p className="text-[11px]">
-                      <span className="font-semibold text-slate-700">Email:</span> info@rejoysolarpower.in
+                      <span className="font-semibold text-slate-700">Email:</span> support@solar.klyiatechnology.com
                     </p>
                     <p className="text-[11px]">
-                      <span className="font-semibold text-slate-700">Web:</span> rejoysolarpower.in
+                      <span className="font-semibold text-slate-700">Web:</span> solar.klyiatechnology.com
                     </p>
                   </div>
                 </div>
@@ -285,13 +285,13 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
               <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-2 leading-relaxed">
                 <p className="font-bold text-slate-900">Dear {quotation.customerName},</p>
                 <p>
-                  Thank you for showing your valued interest in Rejoy Solar Power Pvt. Ltd. We take immense pleasure in submitting our comprehensive commercial and technical proposal for the design, engineering, procurement, erection, testing, and commissioning of a {capacityKw} kW {systemType} Rooftop Solar Power Plant at your premises.
+                  Thank you for showing your valued interest in Solar Urja ERP. We take immense pleasure in submitting our comprehensive commercial and technical proposal for the design, engineering, procurement, erection, testing, and commissioning of a {capacityKw} kW {systemType} Rooftop Solar Power Plant at your premises.
                 </p>
                 <p>
                   Our turnkey EPC solution integrates Tier-1 high-efficiency solar photovoltaic modules, state-of-the-art grid-tied string inverters, heavy-duty elevated hot-dip galvanized mounting structures, and robust electrical balance of systems. The proposed plant is custom-engineered to maximize solar energy generation, reduce your grid power dependence by up to 90%, and deliver long-term, inflation-proof savings for over 25 years.
                 </p>
                 <p>
-                  Rejoy Solar handles the complete statutory liaison process with CSPDCL (Chhattisgarh State Power Distribution Co. Ltd.) and CEIG, from initial application to bidirectional net-meter synchronisation, ensuring an effortless transition to clean, green energy.
+                  Solar Urja handles the complete statutory liaison process with CSPDCL (Chhattisgarh State Power Distribution Co. Ltd.) and CEIG, from initial application to bidirectional net-meter synchronisation, ensuring an effortless transition to clean, green energy.
                 </p>
               </div>
 
@@ -790,7 +790,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
                   <li>PM Surya Ghar Muft Bijli Yojana provides direct bank transfer subsidy of up to ₹78,000 for residential systems.</li>
                   <li>Chhattisgarh State Government provides additional state financial assistance of up to ₹30,000 for empaneled vendors.</li>
                   <li>Subsidy is directly credited into consumer bank account post physical inspection & bi-directional meter synchronisation.</li>
-                  <li>Rejoy Solar Power handles the entire online portal documentation, feasibility report, and liaisons with CSPDCL / CREDA.</li>
+                  <li>Solar Urja handles the entire online portal documentation, feasibility report, and liaisons with CSPDCL / CREDA.</li>
                   <li>Mandatory Client Documents: Latest electricity bill copy, Aadhaar Card, PAN Card, and cancelled cheque leaf.</li>
                 </ul>
               </div>
@@ -1218,7 +1218,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
               <ul className="text-xs text-slate-600 space-y-1.5 list-disc pl-5">
                 <li>Price Validity: This quotation is valid for {quotation.validityDays || 15} days from issuance ({quotation.validTill || '15 Days'}).</li>
                 <li>Taxation: GST is calculated on 70:30 composite EPC scheme. Any statutory revision shall be charged to the client.</li>
-                <li>Title of Goods: Ownership of equipment remains with Rejoy Solar until 100% contractual milestone payments are cleared.</li>
+                <li>Title of Goods: Ownership of equipment remains with Solar Urja ERP until 100% contractual milestone payments are cleared.</li>
                 <li>Discom Interconnection: Net-metering approval is contingent on CSPDCL DT capacity and sanctions as per state regulations.</li>
                 <li>Client Responsibility: Client to ensure clear rooftop access, auxiliary single-phase power, and water for construction.</li>
               </ul>
@@ -1294,7 +1294,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
                 <table className="w-full text-xs">
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {[
-                      ['Beneficiary Name', 'Rejoy Solar Power Pvt. Ltd.'],
+                      ['Beneficiary Name', 'Solar Urja ERP'],
                       ['Bank Name', 'HDFC Bank Ltd.'],
                       ['Account Number', '50200084729103'],
                       ['Account Type', 'Current Account'],
@@ -1314,7 +1314,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
               <div className="mt-4 grid grid-cols-2 gap-3.5">
                 <div className="p-3 bg-white/90 rounded-xl border border-slate-200 flex flex-col justify-between h-28 relative overflow-hidden">
                   <div>
-                    <span className="font-bold text-amber-800 text-xs block">FOR REJOY SOLAR POWER PVT. LTD.</span>
+                    <span className="font-bold text-[#0F2954] text-xs block">FOR SOLAR URJA ERP</span>
                     <span className="text-[10px] text-slate-500">CREDA Approved Turnkey EPC Contractor</span>
                   </div>
                   <div className="border-t border-slate-200 pt-1 text-[10px] text-slate-500 relative z-10">

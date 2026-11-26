@@ -48,15 +48,18 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
 
         <div
           onClick={() => setActiveView('dashboard')}
-          className="flex items-center cursor-pointer select-none group"
-          title="Rejoy Solar Power Pvt. Ltd."
+          className="flex items-center gap-3 cursor-pointer select-none group"
+          title="Solar Urja ERP — solar.klyiatechnology.com"
         >
           <img
-            src="/logo-dark.png"
-            alt="Rejoy Solar Power Pvt. Ltd."
-            className="h-10 sm:h-11 w-auto max-h-12 object-contain group-hover:opacity-90 transition-opacity"
-            referrerPolicy="no-referrer"
+            src="/assets/aistudio/solar_urja_logo_07b84efe.jpeg"
+            alt="Solar Urja ERP"
+            className="h-9 sm:h-10 w-auto max-h-11 object-contain group-hover:opacity-90 transition-opacity"
           />
+          <div className="hidden xl:flex flex-col border-l border-slate-200 pl-3 leading-tight">
+            <span className="text-xs font-extrabold text-[#0F2954] tracking-tight">Solar Urja ERP</span>
+            <span className="text-[10px] font-semibold text-[#16A34A]">solar.klyiatechnology.com</span>
+          </div>
         </div>
       </div>
 
@@ -97,7 +100,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           >
             <Bell className="w-5 h-5" />
             {unreadNotificationsCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white shadow-2xs animate-pulse">
+              <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#F97316] text-[10px] font-bold text-white shadow-2xs tabular-nums">
                 {unreadNotificationsCount}
               </span>
             )}
@@ -107,15 +110,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
             <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 py-3 z-50 animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between px-4 pb-2 border-b border-slate-100">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Notifications</span>
-                  <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 font-bold text-[10px] rounded-full">
+                  <span className="text-xs font-bold text-[#0F2954] uppercase tracking-wider">Notifications</span>
+                  <span className="px-1.5 py-0.2 bg-orange-100 text-[#EA580C] font-bold text-[10px] rounded-full tabular-nums">
                     {unreadNotificationsCount}
                   </span>
                 </div>
                 {unreadNotificationsCount > 0 && (
                   <button
                     onClick={markAllNotificationsRead}
-                    className="text-[11px] font-semibold text-amber-600 hover:text-amber-800 flex items-center gap-1"
+                    className="text-[11px] font-semibold text-[#EA580C] hover:text-[#0F2954] flex items-center gap-1"
                   >
                     <CheckCheck className="w-3.5 h-3.5" />
                     Mark all read
@@ -137,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                         }
                         setShowNotifications(false);
                       }}
-                      className={`p-3.5 hover:bg-slate-50 cursor-pointer transition-colors ${!n.read ? 'bg-amber-50/40' : ''}`}
+                      className={`p-3.5 hover:bg-slate-50 cursor-pointer transition-colors ${!n.read ? 'bg-orange-50/40' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-xs font-bold text-slate-900">{n.title}</span>
@@ -147,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                       </div>
                       <p className="text-xs text-slate-600 mt-0.5 line-clamp-2">{n.message}</p>
                       {n.projectName && (
-                        <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-700">
+                        <div className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-[#0F2954]">
                           <span>{n.projectName}</span>
                           <ArrowRight className="w-3 h-3" />
                         </div>
@@ -169,12 +172,12 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
             }}
             className="flex items-center gap-2 p-1.5 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all bg-white shadow-2xs cursor-pointer"
           >
-            <div className="w-7 h-7 rounded-lg bg-amber-100 border border-amber-200 text-amber-800 font-bold flex items-center justify-center text-xs">
+            <div className="w-7 h-7 rounded-lg bg-[#0F2954] text-white font-bold flex items-center justify-center text-xs">
               {currentUser.name.charAt(0).toUpperCase()}
             </div>
             <div className="hidden sm:block text-left">
               <p className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[120px]">{currentUser.name}</p>
-              <p className="text-[10px] font-semibold text-amber-700 leading-tight">{currentUser.role}</p>
+              <p className="text-[10px] font-semibold text-[#EA580C] leading-tight">{currentUser.role}</p>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
           </button>
@@ -184,14 +187,14 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
               {/* Authenticated User Header Card */}
               <div className="px-4 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 font-black flex items-center justify-center text-sm shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0F2954] to-[#1E3A8A] text-white font-black flex items-center justify-center text-sm shadow-xs">
                     {currentUser.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-slate-900 truncate">{currentUser.name}</p>
                     <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md font-bold">
+                      <span className="text-[10px] bg-orange-50 text-[#EA580C] border border-orange-200 px-2 py-0.5 rounded-md font-bold">
                         {currentUser.role}
                       </span>
                       {currentUser.department && (

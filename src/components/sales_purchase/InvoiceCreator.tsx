@@ -1916,7 +1916,7 @@ export const InvoiceCreator: React.FC = () => {
             <div className="border border-black grid grid-cols-2">
               <div className="p-2.5 border-r border-black space-y-0.5">
                 <div className="font-bold text-sm">
-                  {settings.companyName || 'REJOY SOLAR POWER PVT. LTD'}
+                  {settings.companyName || 'SOLAR URJA ERP'}
                 </div>
                 <div>
                   {settings.companyAddress ||
@@ -2111,7 +2111,7 @@ export const InvoiceCreator: React.FC = () => {
               </div>
               <div className="pl-3 border-l border-black text-right flex flex-col justify-between">
                 <div className="font-bold text-[10px]">
-                  for {settings.companyName || 'REJOY SOLAR POWER PVT. LTD'}
+                  for {settings.companyName || 'SOLAR URJA ERP'}
                 </div>
                 <div className="pt-8 text-[10px] font-bold">Authorised Signatory</div>
               </div>

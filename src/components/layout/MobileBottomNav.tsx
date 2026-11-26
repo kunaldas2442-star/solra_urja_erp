@@ -17,7 +17,7 @@ export const MobileBottomNav: React.FC = () => {
 
   const buttonClass = (isActive: boolean) =>
     `flex-1 flex flex-col items-center justify-center py-2 px-1 text-[11px] font-semibold transition-colors select-none min-h-[48px] ${
-      isActive ? 'text-amber-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+      isActive ? 'text-[#EA580C] font-bold' : 'text-slate-500 hover:text-[#0F2954]'
     }`;
 
   if (isCustomer) {
@@ -91,11 +91,11 @@ export const MobileBottomNav: React.FC = () => {
         <button
           onClick={() => setActiveView('customer_control_center')}
           className={`flex-1 flex flex-col items-center justify-center py-1.5 px-1 transition-transform active:scale-95 ${
-            activeView === 'customer_control_center' ? 'text-amber-600' : 'text-slate-600'
+            activeView === 'customer_control_center' ? 'text-[#0F2954]' : 'text-slate-600'
           }`}
         >
           <div className={`p-2 rounded-xl shadow-xs ${
-            activeView === 'customer_control_center' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-700'
+            activeView === 'customer_control_center' ? 'bg-[#0F2954] text-white' : 'bg-slate-100 text-slate-700'
           }`}>
             <Layers className="w-5 h-5" />
           </div>

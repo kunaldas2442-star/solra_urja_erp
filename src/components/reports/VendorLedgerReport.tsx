@@ -236,7 +236,7 @@ export const VendorLedgerReport: React.FC<VendorLedgerReportProps> = ({
       l.balanceDue,
       l.balanceDue <= 0.01 ? 'Settled' : 'Pending Payment'
     ]);
-    exportToCSV(`SolarPulse_Vendor_Ledger_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Vendor_Ledger_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Vendor ledger exported to CSV', 'success');
   };
 

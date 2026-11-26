@@ -30,9 +30,9 @@ export const DatabaseSettingsPanel: React.FC = () => {
   const [dbConfig, setDbConfig] = useState({
     host: '127.0.0.1',
     port: 3306,
-    user: 'u238683373_rejoy_solar',
+    user: 'solar_urja_user',
     password: '',
-    database: 'u238683373_rejoy_solar'
+    database: 'solar_urja_erp'
   });
 
   const loadStatus = async () => {
@@ -94,7 +94,7 @@ export const DatabaseSettingsPanel: React.FC = () => {
 
   const handleDownloadDump = () => {
     window.location.href = apiClient.getSqlDumpDownloadUrl();
-    showToast('Downloading complete SolarPulse MySQL database dump (.sql)...', 'info');
+    showToast('Downloading complete Solar Urja ERP MySQL database dump (.sql)...', 'info');
   };
 
   const apiEndpoints = [
@@ -123,17 +123,17 @@ export const DatabaseSettingsPanel: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-amber-900 to-amber-950 rounded-2xl p-6 text-white shadow-md border border-amber-800/40 relative overflow-hidden">
+      <div className="bg-gradient-to-r from-[#0F2954] to-[#1E3A8A] rounded-2xl p-6 text-white shadow-md border border-slate-200 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="space-y-1.5 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-400/30 text-amber-200 text-xs font-semibold">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white/10 border border-white/20 text-orange-200 text-xs font-semibold">
               <Database className="w-3.5 h-3.5" />
               <span>Production MySQL Database & REST APIs</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
               MySQL Data Migration & Server APIs
             </h2>
-            <p className="text-xs sm:text-sm text-amber-100/90 leading-relaxed">
+            <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
               Standalone MySQL database engine without Firebase. All 28 modules, tables, customer passwords,
               and existing data records can be pushed directly to your MySQL server or imported via phpMyAdmin.
             </p>
@@ -142,7 +142,7 @@ export const DatabaseSettingsPanel: React.FC = () => {
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={handleDownloadDump}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-sm transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#F97316] hover:bg-[#EA580C] text-white font-bold text-xs rounded-xl shadow-sm transition-all cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Download SQL Dump</span>

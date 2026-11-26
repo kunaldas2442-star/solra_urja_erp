@@ -21,7 +21,7 @@ function buildDefaultEmailTemplate(
   data: any,
   companyName: string
 ): { subject: string; body: string } {
-  const brand = companyName || 'Rejoy Solar EPC';
+  const brand = companyName || 'Solar Urja ERP';
   const name = recipientName || 'Customer';
 
   switch (type) {

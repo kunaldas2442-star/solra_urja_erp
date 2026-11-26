@@ -131,7 +131,7 @@ export const MonthlyAttendanceReport: React.FC<MonthlyAttendanceReportProps> = (
         rec.siteProjectTitle || '-'
       ];
     });
-    exportToCSV(`SolarPulse_Attendance_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Attendance_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Attendance report exported to CSV', 'success');
   };
 

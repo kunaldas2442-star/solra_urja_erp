@@ -223,15 +223,19 @@ const ProtectedApp: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-white flex items-center justify-center shadow-lg shadow-amber-500/20 animate-pulse">
-          <Sun className="w-6 h-6" />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-slate-400 font-medium tracking-wide">
-            Verifying Rejoy Solar session...
-          </p>
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-900 px-4">
+        <div className="bg-white border border-slate-200 rounded-2xl px-8 py-6 shadow-sm flex flex-col items-center gap-3 text-center">
+          <img
+            src="/assets/aistudio/solar_urja_logo_07b84efe.jpeg"
+            alt="Solar Urja ERP"
+            className="h-12 w-auto object-contain"
+          />
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-[#F97316] border-t-transparent rounded-full animate-spin" />
+            <p className="text-xs text-slate-600 font-semibold tracking-wide">
+              Verifying Solar Urja ERP session...
+            </p>
+          </div>
         </div>
       </div>
     );

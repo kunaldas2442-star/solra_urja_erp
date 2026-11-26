@@ -131,7 +131,7 @@ export const ExpenseSummaryReport: React.FC<ExpenseSummaryReportProps> = ({
       e.tallySyncStatus === 'SYNCED' ? 'Yes' : 'No',
       e.notes || ''
     ]);
-    exportToCSV(`SolarPulse_Expense_Summary_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Expense_Summary_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Expense summary exported to CSV', 'success');
   };
 

@@ -142,7 +142,7 @@ export const UserManagementView: React.FC = () => {
     return `EMP${String(empCount + 1).padStart(3, '0')}`;
   };
 
-  const generateTempPassword = () => `Rejoy@${Math.random().toString(36).slice(-6).toUpperCase()}`;
+  const generateTempPassword = () => `SolarUrja@${Math.random().toString(36).slice(-6).toUpperCase()}`;
 
   // Initial form values
   const defaultEmployeeForm: EmployeeFormData = {
@@ -709,7 +709,7 @@ export const UserManagementView: React.FC = () => {
                       ].includes(emp.systemRole || '')
                   );
                   const isActive = emp.accountStatus !== 'DISABLED' && emp.status !== 'INACTIVE';
-                  const isRootAdmin = emp.systemRole === 'Admin' && emp.id === 'emp-1';
+                  const isRootAdmin = emp.systemRole === 'Admin' && (emp.id === 'emp-1' || emp.id === 'usr-admin-1');
 
                   return (
                     <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
@@ -945,7 +945,7 @@ export const UserManagementView: React.FC = () => {
                     required
                     value={formData.email}
                     onChange={e => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="e.g. name@rejoysolar.com"
+                    placeholder="e.g. name@solar.klyiatechnology.com"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 font-medium"
                   />
                 </div>

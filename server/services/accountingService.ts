@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import type mysql from 'mysql2/promise';
+import { inMemoryDbStore } from '../inMemoryFallback';
 
 const round2 = (n: number): number => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -603,7 +604,7 @@ class AccountingService {
         `INSERT IGNORE INTO \`solar_acc_bank_accounts\` (\`id\`, \`account_name\`, \`account_type\`, \`bank_name\`, \`account_number\`, \`ifsc_code\`, \`branch\`, \`coa_account_id\`, \`opening_balance\`, \`current_balance\`, \`is_primary\`, \`is_active\`)
          VALUES
          ('bank-cash-main', 'Office Petty Cash Register', 'CASH', 'Cash Drawer', 'CASH-01', '', 'Head Office', 'acc-1010', 0, 0, 0, 1),
-         ('bank-main-current', 'Primary Corporate Current Account', 'BANK', 'Operating Bank', 'REJOY-CORP-001', '', 'Main Branch', 'acc-1020', 0, 0, 1, 1)`
+         ('bank-main-current', 'Primary Corporate Current Account', 'BANK', 'Operating Bank', 'SOLARURJA-CORP-001', '', 'Main Branch', 'acc-1020', 0, 0, 1, 1)`
       );
     }
 
@@ -5530,4 +5531,23 @@ class AccountingService {
   }
 }
 
-export const accountingService = new AccountingService();
+const realAccountingService = new AccountingService();
+
+export const accountingService: AccountingService = new Proxy(realAccountingService, {
+  get(target, prop, receiver) {
+    const val = Reflect.get(target, prop, receiver);
+    if (typeof prop === 'string' && typeof val === 'function') {
+      const fallbackFn = (inMemoryDbStore.accounting as any)[prop];
+      if (typeof fallbackFn === 'function') {
+        return (...args: any[]) => {
+          if (!args[0]) {
+            return fallbackFn.apply(inMemoryDbStore.accounting, args);
+          }
+          return val.apply(target, args);
+        };
+      }
+      return val.bind(target);
+    }
+    return val;
+  }
+});

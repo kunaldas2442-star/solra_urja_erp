@@ -134,7 +134,7 @@ export const IncomeSummaryReport: React.FC<IncomeSummaryReportProps> = ({
       p.status,
       p.tallySyncStatus === 'SYNCED' ? 'Yes' : 'No'
     ]);
-    exportToCSV(`SolarPulse_Income_Summary_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Income_Summary_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Income summary exported to CSV', 'success');
   };
 

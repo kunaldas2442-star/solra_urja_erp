@@ -264,7 +264,7 @@ export const SettingsView: React.FC = () => {
                     type="email"
                     value={form.companyEmail || ''}
                     onChange={e => setForm({ ...form, companyEmail: e.target.value })}
-                    placeholder="epc@solarpulse.com"
+                    placeholder="epc@solar.klyiatechnology.com"
                     className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
                   />
                 </div>
@@ -285,7 +285,7 @@ export const SettingsView: React.FC = () => {
                       type="text"
                       value={form.logoUrl || ''}
                       onChange={e => setForm({ ...form, logoUrl: e.target.value })}
-                      placeholder="/logo-dark.png or https://..."
+                      placeholder="/assets/aistudio/solar_urja_logo_07b84efe.jpeg or https://..."
                       className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
                     />
                     {form.logoUrl && (

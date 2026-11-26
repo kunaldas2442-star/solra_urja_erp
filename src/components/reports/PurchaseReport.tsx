@@ -126,7 +126,7 @@ export const PurchaseReport: React.FC<PurchaseReportProps> = ({
       po.paymentStatus,
       po.expectedDeliveryDate || po.receivedDate || 'N/A'
     ]);
-    exportToCSV(`SolarPulse_Purchase_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Purchase_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Purchase report exported to CSV', 'success');
   };
 

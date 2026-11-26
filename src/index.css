@@ -1,5 +1,29 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: light;
+  --solar-navy: #0f2954;
+  --solar-navy-deep: #0b1f40;
+  --solar-orange: #f97316;
+  --solar-orange-dark: #ea580c;
+  --solar-green: #16a34a;
+  --solar-green-dark: #15803d;
+}
+
+html,
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.font-mono,
+code,
+kbd,
+pre {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
 @page {
   size: A4 portrait;
   margin: 10mm;

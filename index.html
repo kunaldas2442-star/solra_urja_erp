@@ -3,28 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Solar ERP + CRM</title>
-    <meta name="description" content="Production-quality modern Solar EPC ERP and CRM platform with complete project workflow tracking, CRM, site survey, finance, HRMS, and service management." />
-    <meta property="og:title" content="Solar ERP + CRM" />
-    <meta property="og:description" content="Production-quality modern Solar EPC ERP and CRM platform with complete project workflow tracking, CRM, site survey, finance, HRMS, and service management." />
+    <title>Solar Urja ERP — solar.klyiatechnology.com</title>
+    <meta name="description" content="Solar Urja ERP & CRM platform (solar.klyiatechnology.com) for solar EPC project workflow tracking, CRM, site survey, finance, HRMS, inventory, and O&M service management." />
+    <meta property="og:title" content="Solar Urja ERP — solar.klyiatechnology.com" />
+    <meta property="og:description" content="Solar Urja ERP & CRM platform (solar.klyiatechnology.com) for solar EPC project workflow tracking, CRM, site survey, finance, HRMS, inventory, and O&M service management." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   </head>
-  <body>
+  <body class="bg-slate-50 text-slate-900 antialiased">
     <div id="root">
-      <div id="rejoy-preloader" style="min-height: 100vh; background-color: #0f172a; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-        <div style="width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #f59e0b, #d97706); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.4);">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
-          </svg>
-        </div>
-        <div style="font-size: 17px; font-weight: 700; color: #ffffff; letter-spacing: -0.01em; margin-bottom: 8px;">SolarPulse EPC ERP & CRM</div>
-        <div style="display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 13px;">
-          <div style="width: 14px; height: 14px; border: 2px solid #f59e0b; border-top-color: transparent; border-radius: 50%; animation: rejoy-spin 0.8s linear infinite;"></div>
-          <span>Loading Rejoy Solar workspace...</span>
+      <div id="solar-urja-preloader" style="min-height: 100vh; background-color: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #0f2954; font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px;">
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px 32px; box-shadow: 0 12px 30px -12px rgba(15, 41, 84, 0.14); display: flex; flex-direction: column; align-items: center; text-align: center;">
+          <img src="/assets/aistudio/solar_urja_logo_07b84efe.jpeg" alt="Solar Urja ERP" style="height: 56px; width: auto; object-fit: contain; margin-bottom: 14px;" />
+          <div style="font-size: 16px; font-weight: 800; color: #0f2954; letter-spacing: -0.01em; margin-bottom: 4px;">Solar Urja ERP</div>
+          <div style="font-size: 12px; font-weight: 600; color: #16a34a; margin-bottom: 14px;">solar.klyiatechnology.com</div>
+          <div style="display: flex; align-items: center; gap: 8px; color: #475569; font-size: 13px; font-weight: 500;">
+            <div style="width: 15px; height: 15px; border: 2px solid #f97316; border-top-color: transparent; border-radius: 50%; animation: solar-urja-spin 0.8s linear infinite;"></div>
+            <span>Loading Solar Urja workspace...</span>
+          </div>
         </div>
         <style>
-          @keyframes rejoy-spin {
+          @keyframes solar-urja-spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
           }
@@ -32,16 +34,15 @@
       </div>
     </div>
     <script>
-      // Production resilience: catch script loading errors or exceptions before React mounts
       window.addEventListener('error', function(e) {
-        var pre = document.getElementById('rejoy-preloader');
+        var pre = document.getElementById('solar-urja-preloader');
         if (pre) {
           console.error('[Production Loader Error]', e.error || e.message);
           var msg = (e && e.message) ? e.message : 'Unknown runtime script error';
-          pre.innerHTML = '<div style="max-width: 420px; padding: 24px; background: #1e293b; border: 1px solid #334155; border-radius: 16px; text-align: center;">' +
-            '<div style="color: #f87171; font-size: 16px; font-weight: 700; margin-bottom: 8px;">Unable to load Solar ERP</div>' +
-            '<div style="color: #94a3b8; font-size: 12px; margin-bottom: 16px; font-family: monospace; word-break: break-all;">' + msg + '</div>' +
-            '<button onclick="try { window.localStorage && window.localStorage.clear(); } catch(err) {} window.location.reload();" style="padding: 8px 16px; background: #f59e0b; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Reload Application</button>' +
+          pre.innerHTML = '<div style="max-width: 420px; padding: 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; text-align: center; box-shadow: 0 12px 28px rgba(15, 41, 84, 0.1);">' +
+            '<div style="color: #dc2626; font-size: 16px; font-weight: 700; margin-bottom: 8px;">Unable to load Solar Urja ERP</div>' +
+            '<div style="color: #475569; font-size: 12px; margin-bottom: 16px; font-family: monospace; word-break: break-all;">' + msg + '</div>' +
+            '<button onclick="try { window.localStorage && window.localStorage.clear(); } catch(err) {} window.location.reload();" style="padding: 8px 16px; background: #f97316; color: #ffffff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">Reload Application</button>' +
             '</div>';
         }
       });

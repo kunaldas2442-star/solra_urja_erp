@@ -183,7 +183,7 @@ async function createServerApp(httpServer?: http.Server) {
   app.get(['/api/health', '/api/status', '/api/status.php'], (_req, res) => {
     res.json({
       status: 'ONLINE',
-      app: 'SolarPulse EPC ERP & CRM',
+      app: 'Solar Urja ERP (solar.klyiatechnology.com)',
       version: '1.0.0',
       environment: process.env.NODE_ENV || 'development',
       server_time: new Date().toISOString(),

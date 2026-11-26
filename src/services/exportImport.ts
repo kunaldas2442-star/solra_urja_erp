@@ -85,7 +85,7 @@ export function getSampleTemplate(module: ExportModule): { headers: string[]; sa
     case 'Employees':
       return {
         headers: ['Employee Code', 'Name', 'Department', 'Designation', 'Phone', 'Email', 'Joining Date', 'Monthly Salary'],
-        sampleRow: ['EMP012', 'Kiran Patel', 'Civil', 'Civil Supervisor', '+91 98251 00223', 'kiran.patel@solarpulse.com', '2026-09-01', 45000]
+        sampleRow: ['EMP012', 'Kiran Patel', 'Civil', 'Civil Supervisor', '+91 98251 00223', 'kiran.patel@solar.klyiatechnology.com', '2026-09-01', 45000]
       };
     case 'Payments':
       return {
@@ -506,7 +506,7 @@ export function parseAndValidateCSV(text: string, module: ExportModule): ImportV
       }
 
       if (!email) {
-        email = `${code.toLowerCase().replace(/[^a-z0-9]/g, '')}@rejoysolar.com`;
+        email = `${code.toLowerCase().replace(/[^a-z0-9]/g, '')}@solar.klyiatechnology.com`;
       }
 
       const dupCheck = validateEmployee({ employeeCode: code, name, phone, email }, batchEmployees);

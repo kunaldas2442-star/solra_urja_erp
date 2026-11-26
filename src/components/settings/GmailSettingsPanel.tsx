@@ -38,7 +38,7 @@ export const GmailSettingsPanel: React.FC = () => {
   const [smtpHost, setSmtpHost] = useState('smtp.gmail.com');
   const [smtpPort, setSmtpPort] = useState<number>(587);
   const [smtpSecurity, setSmtpSecurity] = useState<'TLS' | 'SSL'>('TLS');
-  const [senderName, setSenderName] = useState('Rejoy Solar ERP');
+  const [senderName, setSenderName] = useState('Solar Urja ERP');
   const [enabled, setEnabled] = useState(true);
 
   // Test email state
@@ -60,7 +60,7 @@ export const GmailSettingsPanel: React.FC = () => {
     setSmtpHost(info.smtpHost || 'smtp.gmail.com');
     setSmtpPort(info.smtpPort || (info.smtpSecurity === 'SSL' ? 465 : 587));
     setSmtpSecurity(info.smtpSecurity === 'SSL' ? 'SSL' : 'TLS');
-    setSenderName(info.senderName || 'Rejoy Solar ERP');
+    setSenderName(info.senderName || 'Solar Urja ERP');
     setEnabled(info.enabled !== false);
     setAppPassword('');
     setTestRecipient(prev => prev || info.gmailAddress || currentUser?.email || '');
@@ -143,7 +143,7 @@ export const GmailSettingsPanel: React.FC = () => {
         smtpHost: smtpHost.trim() || 'smtp.gmail.com',
         smtpPort: Number(smtpPort) || (smtpSecurity === 'SSL' ? 465 : 587),
         smtpSecurity,
-        senderName: senderName.trim() || 'Rejoy Solar ERP',
+        senderName: senderName.trim() || 'Solar Urja ERP',
         enabled
       });
       applyServerSettings(res.data);
@@ -186,7 +186,7 @@ export const GmailSettingsPanel: React.FC = () => {
         smtpHost: smtpHost.trim() || 'smtp.gmail.com',
         smtpPort: Number(smtpPort) || (smtpSecurity === 'SSL' ? 465 : 587),
         smtpSecurity,
-        senderName: senderName.trim() || 'Rejoy Solar ERP'
+        senderName: senderName.trim() || 'Solar Urja ERP'
       });
       if (res.data?.settings) {
         setSavedMeta(res.data.settings);
@@ -331,7 +331,7 @@ export const GmailSettingsPanel: React.FC = () => {
                 required
                 value={senderName}
                 onChange={e => setSenderName(e.target.value)}
-                placeholder="e.g. Rejoy Solar EPC ERP"
+                placeholder="e.g. Solar Urja ERP"
                 className="w-full text-xs border border-slate-200 rounded-xl p-2.5 focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
               />
             </div>

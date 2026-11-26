@@ -132,7 +132,7 @@ export const LeadsReport: React.FC<LeadsReportProps> = ({
       l.assignedToName || l.assignedSalespersonName || 'Unassigned',
       l.createdAt ? l.createdAt.slice(0, 10) : 'N/A'
     ]);
-    exportToCSV(`SolarPulse_Leads_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Leads_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Leads report exported to CSV', 'success');
   };
 

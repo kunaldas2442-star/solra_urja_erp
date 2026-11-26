@@ -41,7 +41,7 @@ export function generateWhatsAppMessage(
   switch (type) {
     case 'LEAD_WELCOME':
       title = 'Solar Inquiry Confirmation';
-      body = `Hello ${data.recipientName},\n\nThank you for choosing *${settings.companyName}* for your solar transition. We have received your inquiry for a ${data.capacityKw || ''} kW Solar Rooftop System.\n\nOur Senior Solar Consultant will contact you shortly to schedule a free technical site survey.\n\nSolarPulse EPC Team\n📞 ${settings.companyPhone}`;
+      body = `Hello ${data.recipientName},\n\nThank you for choosing *${settings.companyName}* for your solar transition. We have received your inquiry for a ${data.capacityKw || ''} kW Solar Rooftop System.\n\nOur Senior Solar Consultant will contact you shortly to schedule a free technical site survey.\n\nSolar Urja ERP Team (solar.klyiatechnology.com)\n📞 ${settings.companyPhone}`;
       break;
 
     case 'SURVEY_SCHEDULED':
@@ -61,7 +61,7 @@ export function generateWhatsAppMessage(
 
     case 'INSTALLATION_UPDATE':
       title = 'Live Site Progress Update';
-      body = `Dear ${data.recipientName},\n\nExciting progress on your solar plant (*${data.projectTitle}*)! Stage: *${data.stageTitle || 'Solar Installation'}* is now underway by our certified installation engineers.\n\nYou can track live milestones on your SolarPulse Client Portal.\n\n*${settings.companyName}*`;
+      body = `Dear ${data.recipientName},\n\nExciting progress on your solar plant (*${data.projectTitle}*)! Stage: *${data.stageTitle || 'Solar Installation'}* is now underway by our certified installation engineers.\n\nYou can track live milestones on your Solar Urja ERP Client Portal.\n\n*${settings.companyName}*`;
       break;
 
     case 'PROJECT_COMPLETION':

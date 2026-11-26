@@ -1586,7 +1586,7 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
                   <button
                     type="button"
                     onClick={() => {
-                      const gen = 'Rejoy@' + Math.floor(1000 + Math.random() * 9000);
+                      const gen = 'SolarUrja@' + Math.floor(1000 + Math.random() * 9000);
                       setCustomerForm({ ...customerForm, password: gen });
                       setShowCreatePassword(true);
                       if (customerErrors.password) setCustomerErrors({ ...customerErrors, password: '' });
@@ -1788,7 +1788,7 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
                   <button
                     type="button"
                     onClick={() => {
-                      const gen = 'Rejoy@' + Math.floor(1000 + Math.random() * 9000);
+                      const gen = 'SolarUrja@' + Math.floor(1000 + Math.random() * 9000);
                       setNewCustomerPassword(gen);
                       setConfirmCustomerPassword(gen);
                       setShowUpdatePassword(true);

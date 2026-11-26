@@ -107,14 +107,14 @@ export const AdminDashboard: React.FC = () => {
       return {
         label: 'Pusher Live',
         badgeClass: 'bg-emerald-100 text-emerald-800',
-        dotClass: 'bg-emerald-500 animate-ping'
+        dotClass: 'bg-emerald-500'
       };
     }
     if (pusherState === 'pusher-connecting' || pusherState === 'connecting') {
       return {
         label: 'Connecting...',
-        badgeClass: 'bg-amber-100 text-amber-800',
-        dotClass: 'bg-amber-500 animate-pulse'
+        badgeClass: 'bg-orange-100 text-orange-800',
+        dotClass: 'bg-orange-500'
       };
     }
     if (pusherState === 'sse-fallback') {
@@ -177,29 +177,28 @@ export const AdminDashboard: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
       {/* Top Welcome Bar */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-radial from-amber-500/20 to-transparent pointer-events-none" />
+      <div className="bg-gradient-to-r from-[#0F2954] via-[#15356B] to-[#1E3A8A] rounded-2xl p-6 sm:p-8 text-white shadow-md relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-orange-500/20 text-orange-200 border border-orange-400/30">
                 Master Administration Control Center
               </span>
               <span className="text-xs text-slate-400">•</span>
-              <span className="text-xs text-slate-300 font-medium">Rejoy Solar EPC ERP</span>
+              <span className="text-xs text-slate-200 font-medium">Solar Urja ERP • solar.klyiatechnology.com</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               Welcome back, {currentUser?.name || 'Administrator'}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
-              Overall system status: <span className="text-emerald-400 font-bold">{projects.length} solar projects active</span>, {liveStats.online} field engineers in real-time dispatch, and ₹{(totalProjectValue / 100000).toFixed(1)}L order book.
+            <p className="text-xs sm:text-sm text-slate-200 mt-1 max-w-2xl leading-relaxed">
+              Overall system status: <span className="text-emerald-300 font-bold">{projects.length} solar projects active</span>, {liveStats.online} field engineers in real-time dispatch, and ₹{(totalProjectValue / 100000).toFixed(1)}L order book.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={() => setActiveView('live_tracking')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black rounded-xl transition-all shadow-lg shadow-amber-500/25 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#F97316] hover:bg-[#EA580C] text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
             >
               <Navigation className="w-4 h-4" />
               <span>Live Field Tracking</span>

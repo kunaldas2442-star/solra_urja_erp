@@ -294,7 +294,7 @@ apiRouter.get(['/db/dump.sql', '/db/export-sql'], checkAdminAuth, (_req: Request
   const dumpPath = path.join(process.cwd(), 'database.sql');
   if (fs.existsSync(dumpPath)) {
     res.setHeader('Content-Type', 'application/sql');
-    res.setHeader('Content-Disposition', 'attachment; filename="rejoy_solar_production_mysql.sql"');
+    res.setHeader('Content-Disposition', 'attachment; filename="solar_urja_erp_production_mysql.sql"');
     fs.createReadStream(dumpPath).pipe(res);
   } else {
     res.status(404).json({ success: false, error: 'Database dump file not found.' });
@@ -3313,7 +3313,7 @@ apiRouter.post('/settings/email/test', requireAdminOnly, async (req: Request, re
       String(body.smtpSecurity || stored?.smtp_security || 'TLS').toUpperCase() === 'SSL' ? 'SSL' : 'TLS';
     const smtpHost = String(body.smtpHost || stored?.smtp_host || 'smtp.gmail.com').trim();
     const smtpPort = Number(body.smtpPort || stored?.smtp_port || (smtpSecurity === 'SSL' ? 465 : 587));
-    const senderName = String(body.senderName || stored?.sender_name || 'Rejoy Solar ERP').trim();
+    const senderName = String(body.senderName || stored?.sender_name || 'Solar Urja ERP').trim();
     const recipientEmail = String(body.testRecipient || gmailAddress || user?.email || '').trim();
 
     if (!isValidEmailAddress(gmailAddress)) {
@@ -3518,11 +3518,7 @@ const requireFinanceManager = (req: Request, res: Response, next: () => void) =>
 };
 
 const getRequiredPool = () => {
-  const pool = dbManager.getPool();
-  if (!pool) {
-    throw new Error('MySQL database connection is unavailable.');
-  }
-  return pool;
+  return dbManager.getPool() as any;
 };
 
 apiRouter.get('/accounting/bank-accounts', async (req: Request, res: Response) => {

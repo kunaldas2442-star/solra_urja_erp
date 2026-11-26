@@ -49,12 +49,12 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
   };
 
   const settings = storageService.getSettings();
-  const companyName = settings.companyName || 'Rejoy Solar Power Pvt. Ltd.';
+  const companyName = settings.companyName || 'SOLAR URJA ERP';
   const companyAddress = settings.companyAddress || 'Plot 14-A, GIDC Industrial Estate, Sanand, Ahmedabad, Gujarat 382110';
   const companyPhone = settings.companyPhone || '+91 79 4001 8800';
-  const companyEmail = settings.companyEmail || 'payroll@rejoysolar.com';
+  const companyEmail = settings.companyEmail || 'payroll@solar.klyiatechnology.com';
   const companyGst = settings.companyGst || '24AAECS9921D1Z8';
-  const logoUrl = settings.logoUrl || '/logo-dark.png';
+  const logoUrl = settings.logoUrl || '/assets/aistudio/solar_urja_logo_07b84efe.jpeg';
   const currencySymbol = settings.currencySymbol || '₹';
 
   const formatAmount = (val: number | string | undefined | null) => {
@@ -148,8 +148,11 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
                   className="h-12 sm:h-14 w-auto max-h-14 max-w-[200px] object-contain"
                   onError={e => {
                     const img = e.currentTarget;
-                    if (img.src !== window.location.origin + '/logo-dark.png' && !img.src.endsWith('/logo-dark.png')) {
-                      img.src = '/logo-dark.png';
+                    if (
+                      img.src !== window.location.origin + '/assets/aistudio/solar_urja_logo_07b84efe.jpeg' &&
+                      !img.src.endsWith('/assets/aistudio/solar_urja_logo_07b84efe.jpeg')
+                    ) {
+                      img.src = '/assets/aistudio/solar_urja_logo_07b84efe.jpeg';
                     }
                   }}
                 />

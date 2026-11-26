@@ -8,6 +8,7 @@ import bcrypt from 'bcryptjs';
 import { ensureLocalMySqlRunning } from './mysqlDaemon';
 import { authService } from './services/authService';
 import { accountingService } from './services/accountingService';
+import { inMemoryDbStore } from './inMemoryFallback';
 import {
   EmailSettingsRecord,
   SanitizedEmailSettings,
@@ -637,7 +638,7 @@ class MySqlDatabaseManager {
             \`smtp_host\` VARCHAR(255) NOT NULL DEFAULT 'smtp.gmail.com',
             \`smtp_port\` INT NOT NULL DEFAULT 587,
             \`smtp_security\` VARCHAR(16) NOT NULL DEFAULT 'TLS',
-            \`sender_name\` VARCHAR(255) NOT NULL DEFAULT 'Rejoy Solar ERP',
+            \`sender_name\` VARCHAR(255) NOT NULL DEFAULT 'Solar Urja ERP',
             \`encrypted_app_password\` TEXT NOT NULL,
             \`iv\` VARCHAR(64) NOT NULL,
             \`auth_tag\` VARCHAR(64) NOT NULL,
@@ -851,6 +852,7 @@ class MySqlDatabaseManager {
       }
 
       await this.ensureHashedPasswords();
+      await this.seedDefaultDemoUsersIfEmpty();
       await authService.initAuthSchema(this.pool);
       await accountingService.ensureAccountingSchema(this.pool);
     } catch (err: any) {
@@ -934,10 +936,14 @@ class MySqlDatabaseManager {
       database: this.config.database,
       port: this.config.port,
       user: this.config.user,
-      mode: this.isConnected ? 'LIVE_MYSQL_POOL' : 'DISCONNECTED',
+      mode: this.isConnected ? 'LIVE_MYSQL_POOL' : 'IN_MEMORY_FALLBACK',
       dumpAvailable: fs.existsSync(path.join(process.cwd(), 'database.sql')),
       dumpPath: '/database.sql'
     };
+  }
+
+  public isDbConnected(): boolean {
+    return this.isConnected && Boolean(this.pool);
   }
 
   public getPool(): mysql.Pool | null {
@@ -2979,7 +2985,7 @@ class MySqlDatabaseManager {
         department,
         designation,
         phone,
-        email: email || `${cNorm.toLowerCase()}@rejoysolar.com`,
+        email: email || `${cNorm.toLowerCase()}@solar.klyiatechnology.com`,
         joiningDate,
         salaryMonthly,
         status,
@@ -9664,7 +9670,7 @@ class MySqlDatabaseManager {
 
     const canonicalId = existing?.id || existingEmployee?.auth_uid || existingEmployee?.id || item.id;
     const name = item.name ?? existing?.name ?? existingEmployee?.name ?? 'Solar User';
-    const email = cleanEmail || existing?.email || existingEmployee?.email || `${canonicalId}@rejoysolar.com`;
+    const email = cleanEmail || existing?.email || existingEmployee?.email || `${canonicalId}@solar.klyiatechnology.com`;
 
     // Strict Argon2id / bcrypt password handling: NEVER store plaintext or revert to plaintext
     let password = existing?.password;
@@ -9846,11 +9852,27 @@ class MySqlDatabaseManager {
     const hashed = await bcrypt.hash(cleanPass, 10);
     this.assertDbConnected();
     if (this.pool) {
+      let resolvedEmail: string | null = null;
+      let resolvedAuthUid: string | null = null;
+      try {
+        const [empRows]: any = await this.pool.query(
+          'SELECT `id`, `auth_uid`, `email`, `employee_code` FROM `solar_employee` WHERE `id` = ? OR `auth_uid` = ? OR LOWER(`email`) = ? LIMIT 1',
+          [cleanId, cleanId, cleanId.toLowerCase()]
+        );
+        if (Array.isArray(empRows) && empRows.length > 0) {
+          resolvedEmail = empRows[0].email ? String(empRows[0].email).trim().toLowerCase() : null;
+          resolvedAuthUid = empRows[0].auth_uid ? String(empRows[0].auth_uid).trim() : null;
+        }
+      } catch {}
+
       await this.pool.query(
-        'UPDATE `solar_users` SET `password` = ?, `updated_at` = CURRENT_TIMESTAMP WHERE `id` = ? OR LOWER(`email`) = ?',
-        [hashed, cleanId, cleanId.toLowerCase()]
+        'UPDATE `solar_users` SET `password` = ?, `updated_at` = CURRENT_TIMESTAMP WHERE `id` = ? OR `id` = ? OR LOWER(`email`) = ? OR LOWER(`email`) = ?',
+        [hashed, cleanId, resolvedAuthUid || cleanId, cleanId.toLowerCase(), resolvedEmail || cleanId.toLowerCase()]
       );
       await authService.updatePassword(this.pool, cleanId, cleanPass);
+      if (resolvedEmail && resolvedEmail !== cleanId.toLowerCase()) {
+        await authService.updatePassword(this.pool, resolvedEmail, cleanPass);
+      }
       return true;
     }
     const items = this.getFallbackItems('users');
@@ -10226,6 +10248,58 @@ class MySqlDatabaseManager {
     }
   }
 
+  public async seedDefaultDemoUsersIfEmpty(): Promise<void> {
+    if (!this.pool || !this.isConnected) return;
+    try {
+      const [countRows]: any = await this.pool.query('SELECT COUNT(*) AS cnt FROM `solar_users`');
+      const userCount = Number(countRows?.[0]?.cnt || 0);
+      if (userCount > 0) return;
+
+      const demoStaff = [
+        { id: 'usr-admin-1', code: 'EMP-001', name: 'Vikram Patel', email: 'admin@solar.klyiatechnology.com', pass: 'SolarAdmin@2026', role: 'Admin', dept: 'Administration', desig: 'Lead Administrator', phone: '+91 98250 10001', fw: 0, sal: 95000 },
+        { id: 'usr-salesmgr-1', code: 'EMP-002', name: 'Priya Verma', email: 'salesmanager@solar.klyiatechnology.com', pass: 'SolarSales@2026', role: 'Sales Manager', dept: 'Sales', desig: 'Sales Manager - C&I', phone: '+91 98250 10002', fw: 0, sal: 65000 },
+        { id: 'usr-pm-1', code: 'EMP-003', name: 'Amit Sharma', email: 'projectmanager@solar.klyiatechnology.com', pass: 'SolarProject@2026', role: 'Project Manager', dept: 'Operations', desig: 'Senior Project Manager', phone: '+91 98250 10003', fw: 0, sal: 72000 },
+        { id: 'usr-survey-1', code: 'EMP-004', name: 'Rajesh Kumar', email: 'surveyor@solar.klyiatechnology.com', pass: 'SolarSurvey@2026', role: 'Site Survey Engineer', dept: 'Engineering', desig: 'Lead Site Survey Engineer', phone: '+91 98250 10004', fw: 1, sal: 42000 },
+        { id: 'usr-insp-1', code: 'EMP-005', name: 'Hardik Shah', email: 'inspector@solar.klyiatechnology.com', pass: 'SolarInspect@2026', role: 'Site Inspector', dept: 'Engineering', desig: 'Senior Site Inspector & Auditor', phone: '+91 98250 10005', fw: 1, sal: 45000 },
+        { id: 'usr-civil-1', code: 'EMP-006', name: 'Suresh Patel', email: 'civil@solar.klyiatechnology.com', pass: 'SolarCivil@2026', role: 'Civil Team', dept: 'Civil', desig: 'Civil Foundations Lead', phone: '+91 98250 10006', fw: 1, sal: 35000 },
+        { id: 'usr-elec-1', code: 'EMP-007', name: 'Ankit Joshi', email: 'electrical@solar.klyiatechnology.com', pass: 'SolarElec@2026', role: 'Electrical Team', dept: 'Electrical', desig: 'Senior Electrical Engineer', phone: '+91 98250 10007', fw: 1, sal: 44000 },
+        { id: 'usr-inst-1', code: 'EMP-008', name: 'Manoj Tiwari', email: 'installation@solar.klyiatechnology.com', pass: 'SolarInstall@2026', role: 'Installation Team', dept: 'Installation', desig: 'Module Installation Lead', phone: '+91 98250 10008', fw: 1, sal: 37000 },
+        { id: 'usr-hr-1', code: 'EMP-009', name: 'Neha Gupta', email: 'hr@solar.klyiatechnology.com', pass: 'SolarHr@2026', role: 'HR Manager', dept: 'HR', desig: 'HR & Admin Manager', phone: '+91 98250 10009', fw: 0, sal: 52000 },
+        { id: 'usr-acc-1', code: 'EMP-010', name: 'Sneha Kulkarni', email: 'accounts@solar.klyiatechnology.com', pass: 'SolarAccounts@2026', role: 'Accountant', dept: 'Finance', desig: 'Accounts Manager & Tally Specialist', phone: '+91 98250 10010', fw: 0, sal: 55000 }
+      ];
+
+      for (const s of demoStaff) {
+        const hashed = await bcrypt.hash(s.pass, 10);
+        await this.pool.query(
+          `INSERT IGNORE INTO \`solar_users\` (\`id\`, \`name\`, \`email\`, \`password\`, \`role\`, \`phone\`, \`department\`, \`designation\`, \`employee_id\`, \`is_field_worker\`, \`status\`)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+          [s.id, s.name, s.email, hashed, s.role, s.phone, s.dept, s.desig, s.code, s.fw]
+        );
+        await this.pool.query(
+          `INSERT IGNORE INTO \`solar_employee\` (\`id\`, \`employee_code\`, \`name\`, \`department\`, \`designation\`, \`phone\`, \`email\`, \`joining_date\`, \`salary_monthly\`, \`status\`, \`login_enabled\`, \`auth_uid\`, \`system_role\`, \`is_field_worker\`, \`account_status\`)
+           VALUES (?, ?, ?, ?, ?, ?, ?, '2025-04-01', ?, 'ACTIVE', 1, ?, ?, ?, 'ACTIVE')`,
+          [s.id, s.code, s.name, s.dept, s.desig, s.phone, s.email, s.sal, s.id, s.role, s.fw]
+        ).catch(() => {});
+      }
+
+      const custPassHash = await bcrypt.hash('SolarCustomer@2026', 10);
+      await this.pool.query(
+        `INSERT IGNORE INTO \`solar_users\` (\`id\`, \`name\`, \`email\`, \`password\`, \`role\`, \`phone\`, \`department\`, \`designation\`, \`customer_id\`, \`is_field_worker\`, \`status\`)
+         VALUES ('usr-cust-abc-1', 'ABC Industries Ltd.', 'customer@solar.klyiatechnology.com', ?, 'Customer', '+91 98261 44556', 'Customer', 'Client Representative', 'cust-abc-1', 0, 'ACTIVE')`,
+        [custPassHash]
+      );
+      await this.pool.query(
+        `INSERT IGNORE INTO \`solar_customers\` (\`id\`, \`customer_code\`, \`name\`, \`company_name\`, \`customer_type\`, \`phone\`, \`email\`, \`password\`, \`site_address\`, \`city\`, \`state\`, \`pincode\`, \`status\`)
+         VALUES ('cust-abc-1', 'CUST-1001', 'ABC Industries Ltd.', 'ABC Industries Pvt. Ltd.', 'Commercial', '+91 98261 44556', 'customer@solar.klyiatechnology.com', ?, 'Plot 42, Heavy Industrial Area, Hathkhoj, Bhilai', 'Bhilai', 'Chhattisgarh', '490026', 'ACTIVE')`,
+        [custPassHash]
+      ).catch(() => {});
+
+      console.log('[MySQL] Seeded default Solar Urja ERP demo accounts for all 11 portal roles.');
+    } catch (e: any) {
+      console.warn('[MySQL] Demo user auto-seed notice:', e?.message || e);
+    }
+  }
+
   public async getAdminRegistrationStatus(): Promise<{ allowPublicRegistration: boolean; adminCount: number }> {
     this.assertDbConnected();
     const [admins]: any = await this.pool!.query(
@@ -10233,7 +10307,10 @@ class MySqlDatabaseManager {
     );
     const adminList = Array.isArray(admins) ? admins : [];
     const nonDemoAdmins = adminList.filter(
-      a => !a.email.toLowerCase().includes('admin@rejoysolar.com') && !a.id.startsWith('demo-')
+      a =>
+        !a.email.toLowerCase().includes('admin@solar.klyiatechnology.com') &&
+        !a.email.toLowerCase().includes('admin@rejoysolar.com') &&
+        !a.id.startsWith('demo-')
     );
     const allowPublicRegistration = nonDemoAdmins.length === 0;
     return {
@@ -10681,10 +10758,10 @@ class MySqlDatabaseManager {
       fs.mkdirSync(backupDir, { recursive: true });
     }
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupFileName = `rejoy_erp_backup_${timestamp}.sql`;
+    const backupFileName = `solar_urja_erp_backup_${timestamp}.sql`;
     const backupFilePath = path.join(backupDir, backupFileName);
 
-    let backupSql = `-- Rejoy Solar ERP Database Backup\n-- Created: ${new Date().toISOString()}\n-- Database: ${this.config.database}\n\nSET FOREIGN_KEY_CHECKS = 0;\n\n`;
+    let backupSql = `-- Solar Urja ERP Database Backup (solar.klyiatechnology.com)\n-- Created: ${new Date().toISOString()}\n-- Database: ${this.config.database}\n\nSET FOREIGN_KEY_CHECKS = 0;\n\n`;
 
     const allTables = [...businessTables, ...preservedTables];
     for (const table of allTables) {
@@ -11287,4 +11364,32 @@ class MySqlDatabaseManager {
   }
 }
 
-export const dbManager = new MySqlDatabaseManager();
+const realDbManager = new MySqlDatabaseManager();
+
+const DB_LIFECYCLE_METHODS = new Set([
+  'init',
+  'getStatus',
+  'getPool',
+  'isDbConnected',
+  'testConnection',
+  'runFullMigration'
+]);
+
+export const dbManager: MySqlDatabaseManager = new Proxy(realDbManager, {
+  get(target, prop, receiver) {
+    if (
+      typeof prop === 'string' &&
+      !DB_LIFECYCLE_METHODS.has(prop) &&
+      !target.isDbConnected() &&
+      prop in inMemoryDbStore
+    ) {
+      const fallbackVal = (inMemoryDbStore as any)[prop];
+      if (typeof fallbackVal === 'function') {
+        return fallbackVal.bind(inMemoryDbStore);
+      }
+      return fallbackVal;
+    }
+    const val = Reflect.get(target, prop, receiver);
+    return typeof val === 'function' ? val.bind(target) : val;
+  }
+});

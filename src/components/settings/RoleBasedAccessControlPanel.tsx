@@ -291,7 +291,7 @@ export const RoleBasedAccessControlPanel: React.FC = () => {
     const testProfile = {
       id: `test-${roleToTest.toLowerCase().replace(/\s+/g, '-')}`,
       name: `${roleToTest} (Test Mode)`,
-      email: `${roleToTest.toLowerCase().replace(/\s+/g, '.')}@solarpulse.com`,
+      email: `${roleToTest.toLowerCase().replace(/\s+/g, '.')}@solar.klyiatechnology.com`,
       role: roleToTest,
       phone: '+91 98000 00000',
       department: selectedRoleMeta.department,

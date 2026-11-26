@@ -273,7 +273,7 @@ export const CustomerLedgerReport: React.FC<CustomerLedgerReportProps> = ({
       l.balance,
       l.balance <= 0.01 ? 'Settled' : l.hasOverdue ? 'Overdue' : 'Outstanding'
     ]);
-    exportToCSV(`SolarPulse_Customer_Ledger_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Customer_Ledger_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Customer ledger exported to CSV', 'success');
   };
 

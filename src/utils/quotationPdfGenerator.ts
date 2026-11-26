@@ -2,9 +2,9 @@ import { jsPDF, GState } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Quotation } from '../types/solar';
 import { formatINR, numberToIndianWords } from './indianNumberWords';
-import { REJOY_LOGO_BASE64 } from './logoData';
+import { SOLAR_URJA_LOGO_BASE64 } from './logoData';
 
-export const WATERMARK_TEXT = 'Rejoy Solar Power';
+export const WATERMARK_TEXT = 'Solar Urja ERP';
 
 /**
  * Generates an off-screen HTML canvas data URL with a dynamic,
@@ -160,7 +160,7 @@ export function applyWatermarkOverlayToDoc(
             0,
             pWidth,
             pHeight,
-            `rejoy_wm_${pxWidth}x${pxHeight}`,
+            `solar_urja_wm_${pxWidth}x${pxHeight}`,
             'FAST'
           );
           applied = true;
@@ -189,9 +189,9 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   const contentWidth = pageWidth - margin * 2;
   const totalPages = 10;
 
-  // Primary Theme Colors (Rejoy Solar Official Brand Palette)
-  const primaryColor = [217, 119, 6]; // Amber-600 #d97706
-  const primaryDark = [180, 83, 9]; // Amber-700 #b45309
+  // Primary Theme Colors (Solar Urja Official Brand Palette)
+  const primaryColor = [249, 115, 22]; // Solar Orange #f97316
+  const primaryDark = [15, 41, 84]; // Solar Navy Blue #0f2954
   const slateDark = [15, 23, 42]; // Slate-900 #0f172a
   const slateMuted = [71, 85, 105]; // Slate-600 #475569
   const slateLight = [248, 250, 252]; // Slate-50 #f8fafc
@@ -234,24 +234,24 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
 
     // Official Company Logo Image
     try {
-      doc.addImage(REJOY_LOGO_BASE64, 'PNG', margin, 5.5, 26, 10.5, 'rejoy_logo', 'FAST');
+      doc.addImage(SOLAR_URJA_LOGO_BASE64, 'JPEG', margin, 5.5, 36, 9, 'solar_urja_logo', 'FAST');
     } catch {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
       doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-      doc.text('REJOY', margin, 12);
+      doc.text('SOLAR URJA', margin, 12);
     }
 
     // Company Credentials next to Logo
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-    doc.text('POWER PVT. LTD.', margin + 28, 10);
+    doc.text('SOLAR URJA ERP', margin + 38, 10);
 
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
-    doc.text('CREDA Approved Solar EPC Contractor', margin + 28, 14);
+    doc.text('solar.klyiatechnology.com', margin + 38, 14);
 
     // Page Section Title on Right
     doc.setFont('helvetica', 'bold');
@@ -280,7 +280,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.8);
     doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
-    doc.text('Rejoy Solar Power Pvt. Ltd. | CREDA Approved Solar EPC Contractor | An ISO 9001:2015 Certified Co.', margin, y);
+    doc.text('Solar Urja ERP (solar.klyiatechnology.com) | CREDA Approved Solar EPC Contractor | An ISO 9001:2015 Certified Co.', margin, y);
 
     const padNum = pageNum < 10 ? `0${pageNum}` : `${pageNum}`;
     doc.setFont('helvetica', 'bold');
@@ -406,7 +406,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-  doc.text('REJOY SOLAR POWER PRIVATE LIMITED', epcX + 4, colY + 12);
+  doc.text('SOLAR URJA ERP', epcX + 4, colY + 12);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
@@ -415,8 +415,8 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.text('Plot No. 14, St No 14/b, Pragati Nagar Risali', epcX + 4, colY + 22);
   doc.text('Civic Centre, Bhilai, Durg, CG - 490006', epcX + 4, colY + 27);
   doc.text('Phone: +91 9770577527 / +91 7803844457', epcX + 4, colY + 32);
-  doc.text('Email: rejoysolarpower@gmail.com', epcX + 4, colY + 37);
-  doc.text('Web: www.rejoysolarpower.in | CIN: U40106CT2021PTC011234', epcX + 4, colY + 42);
+  doc.text('Email: support@solar.klyiatechnology.com', epcX + 4, colY + 37);
+  doc.text('Web: solar.klyiatechnology.com | ISO 9001:2015', epcX + 4, colY + 42);
 
   // Executive Project Summary Table
   const sumY = colY + colH + 6;
@@ -617,7 +617,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   doc.setTextColor(51, 65, 85);
-  const greenText = `By adopting Rejoy Solar's high-efficiency ${capacityKw} kW on-grid solar plant, you actively reduce state grid strain and thermal coal burning while creating measurable green savings. Your installation is fully compliant with CREDA and Ministry of New and Renewable Energy (MNRE) standards.`;
+  const greenText = `By adopting Solar Urja ERP's high-efficiency ${capacityKw} kW on-grid solar plant, you actively reduce state grid strain and thermal coal burning while creating measurable green savings. Your installation is fully compliant with CREDA and Ministry of New and Renewable Energy (MNRE) standards.`;
   doc.text(doc.splitTextToSize(greenText, contentWidth - 12), margin + 6, greenY + 13);
 
   drawFooter(2);
@@ -802,13 +802,13 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.text('Bi-Directional Power Flow: Day-time surplus exports to CSPDCL Grid; Night-time consumption draws from Grid with 1:1 billing offset.', margin + contentWidth / 2, curY + 42, { align: 'center' });
 
   curY += diagCardH + 4;
-  curY = drawSectionTitle('4. Why Choose Rejoy Solar Power Pvt. Ltd.', curY);
+  curY = drawSectionTitle('4. Why Choose Solar Urja ERP', curY);
 
   autoTable(doc, {
     startY: curY,
     margin: { left: margin, right: margin },
     theme: 'grid',
-    head: [['Distinction', 'Rejoy Solar Engineering Edge', 'Client Value']],
+    head: [['Distinction', 'Solar Urja Engineering Edge', 'Client Value']],
     body: [
       ['CREDA Approved Grade-A', 'Officially empaneled EPC with Chhattisgarh State Renewable Energy Development Agency', '100% compliant subsidy clearance'],
       ['Tier-1 DCR PV Modules', 'Exclusively DCR Bifacial Dual-Glass Waaree modules with high temperature coefficient', 'Higher generation in Indian climate'],
@@ -894,7 +894,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
-  const qText = 'All solar components supplied by Rejoy Solar Power Private Limited strictly comply with ALMM (Approved List of Models and Manufacturers) and Domestic Content Requirement (DCR) protocols required for government subsidy disbursement. Tier-1 solar modules are tested against potential induced degradation (PID) and salt mist corrosion.';
+  const qText = 'All solar components supplied by Solar Urja ERP strictly comply with ALMM (Approved List of Models and Manufacturers) and Domestic Content Requirement (DCR) protocols required for government subsidy disbursement. Tier-1 solar modules are tested against potential induced degradation (PID) and salt mist corrosion.';
   doc.text(doc.splitTextToSize(qText, contentWidth - 12), margin + 6, specNoteY + 11);
 
   drawFooter(4);
@@ -1382,7 +1382,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(30, 41, 59);
-  const subText = `The central government DBT subsidy of ${formatINR(centralSubsidy)} is directly transferred into the customer's bank account via the National Portal (pmsuryaghar.gov.in) post net-meter installation and DISCOM inspection. Rejoy Solar takes full responsibility for registration, document submission, portal uploading, and approval verification.`;
+  const subText = `The central government DBT subsidy of ${formatINR(centralSubsidy)} is directly transferred into the customer's bank account via the National Portal (pmsuryaghar.gov.in) post net-meter installation and DISCOM inspection. Solar Urja takes full responsibility for registration, document submission, portal uploading, and approval verification.`;
   doc.text(doc.splitTextToSize(subText, contentWidth - 12), margin + 6, subY + 10);
 
   drawFooter(6);
@@ -1823,7 +1823,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
     startY: curY,
     margin: { left: margin, right: margin },
     theme: 'grid',
-    head: [['Responsibility Head', 'Scope of EPC Contractor (Rejoy Solar)', 'Scope of Customer / Client']],
+    head: [['Responsibility Head', 'Scope of EPC Contractor (Solar Urja)', 'Scope of Customer / Client']],
     body: [
       ['Rooftop Access & Civil', 'Structural design, elevated HDG fabrication, civil anchoring, module clamping, clean terrace handover.', 'Unobstructed roof access, shadow-free terrace area, water supply for cleaning modules.'],
       ['Electrical & Grid Interconnection', 'Supply of DC/AC cables, ACDB/DCDB, inverter installation, chemical earthing, connection to main LT panel.', 'Adequate sanctioned load with DISCOM (CSPDCL), LT distribution board access.'],
@@ -1911,7 +1911,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.text('ACCOUNT NUMBER:', margin + 6, curY + 17);
 
   doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
-  doc.text('REJOY SOLAR POWER PRIVATE LIMITED', margin + 35, curY + 6);
+  doc.text('SOLAR URJA ERP', margin + 35, curY + 6);
   doc.text('ICICI Bank / HDFC Bank Limited', margin + 35, curY + 11.5);
   doc.text('50200088991234 (Current Account)', margin + 35, curY + 17);
 
@@ -1924,7 +1924,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
   doc.text('HDFC0001234 / ICIC0000123', margin + 125, curY + 6);
   doc.text('Civic Centre, Bhilai, Chhattisgarh', margin + 125, curY + 11.5);
-  doc.text('rejoysolarpower@icici', margin + 125, curY + 17);
+  doc.text('solarurja@icici', margin + 125, curY + 17);
 
   curY += 28;
   curY = drawSectionTitle('14. Contract Execution & Customer Acceptance', curY);
@@ -1943,7 +1943,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-  doc.text('FOR REJOY SOLAR POWER PRIVATE LIMITED', margin + 4, curY + 4.5);
+  doc.text('FOR SOLAR URJA ERP', margin + 4, curY + 4.5);
 
   // Contractor Signature Line
   doc.setDrawColor(203, 213, 225);

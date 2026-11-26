@@ -2473,7 +2473,7 @@ export const VendorSalesInvoiceManager: React.FC = () => {
                   )}
                   <div>
                     <div className="font-bold text-sm">
-                      {settings.companyName || 'REJOY SOLAR POWER PVT. LTD.'}
+                      {settings.companyName || 'SOLAR URJA ERP'}
                     </div>
                     <div className="text-[10px]">
                       {settings.companyAddress ||
@@ -2742,7 +2742,7 @@ export const VendorSalesInvoiceManager: React.FC = () => {
                 </div>
                 <div className="pl-3 border-l border-black text-right flex flex-col justify-between">
                   <div className="font-bold">
-                    for {settings.companyName || 'REJOY SOLAR POWER PVT. LTD.'}
+                    for {settings.companyName || 'SOLAR URJA ERP'}
                   </div>
                   <div className="pt-8 font-bold">Authorised Signatory</div>
                 </div>

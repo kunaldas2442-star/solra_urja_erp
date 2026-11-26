@@ -122,7 +122,7 @@ export const SalesReport: React.FC<SalesReportProps> = ({
       inv.dueDate,
       inv.status
     ]);
-    exportToCSV(`SolarPulse_Sales_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
+    exportToCSV(`SolarUrja_Sales_Report_${new Date().toISOString().slice(0, 10)}`, headers, rows);
     showToast('Sales report exported to CSV', 'success');
   };
 

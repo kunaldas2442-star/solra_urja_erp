@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { SystemSettings, VendorSalesInvoice } from '../types/solar';
 import { numberToIndianWords } from './indianNumberWords';
-import { REJOY_LOGO_BASE64 } from './logoData';
+import { SOLAR_URJA_LOGO_BASE64 } from './logoData';
 import { resolveStateNameAndCode } from './gstTaxUtils';
 
 function fmtAmt(val: number | undefined | null): string {
@@ -33,13 +33,13 @@ export function generateVendorSalesInvoicePdf(
   const margin = 12;
   const contentWidth = pageWidth - margin * 2;
 
-  const companyName = settings.companyName || 'REJOY SOLAR POWER PVT. LTD.';
+  const companyName = settings.companyName || 'SOLAR URJA ERP';
   const companyAddress =
     settings.companyAddress ||
     'Plot No. 14, Street No. 14/B, Pragati Nagar, Risali, Bhilai, Durg, Chhattisgarh - 490006';
   const companyGst = settings.companyGst || '22AAOCR0748K1Z5';
   const companyPhone = settings.companyPhone || '+91 9770577527';
-  const companyEmail = settings.companyEmail || 'rejoysolarpower@gmail.com';
+  const companyEmail = settings.companyEmail || 'support@solar.klyiatechnology.com';
   const companyStateInfo = resolveStateNameAndCode(
     invoice.companyState || '',
     companyGst,
@@ -60,18 +60,18 @@ export function generateVendorSalesInvoicePdf(
 
   const isInterState = invoice.supplyType === 'INTER_STATE';
 
-  // Top amber accent stripe
-  doc.setFillColor(217, 119, 6);
+  // Top Solar Urja orange accent stripe
+  doc.setFillColor(249, 115, 22);
   doc.rect(0, 0, pageWidth, 3, 'F');
 
   // Header Logo & Company Details
   try {
-    doc.addImage(REJOY_LOGO_BASE64, 'PNG', margin, 6, 26, 10.5, 'rejoy_logo', 'FAST');
+    doc.addImage(SOLAR_URJA_LOGO_BASE64, 'JPEG', margin, 6, 36, 9, 'solar_urja_logo', 'FAST');
   } catch {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(12);
-    doc.setTextColor(180, 83, 9);
-    doc.text('REJOY SOLAR', margin, 13);
+    doc.setTextColor(15, 41, 84);
+    doc.text('SOLAR URJA ERP', margin, 13);
   }
 
   doc.setFont('helvetica', 'bold');

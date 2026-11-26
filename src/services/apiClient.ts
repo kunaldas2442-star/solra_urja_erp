@@ -1,5 +1,5 @@
 /**
- * SolarPulse EPC ERP & CRM - MySQL Backend API Client
+ * Solar Urja ERP (solar.klyiatechnology.com) - MySQL Backend API Client
  * Provides unified async communication with /api/* endpoints
  */
 
@@ -95,7 +95,7 @@ class ApiClient {
         success: false,
         connected: false,
         host: '127.0.0.1',
-        database: 'u238683373_rejoy_solar',
+        database: 'solar_urja_erp',
         port: 3306,
         mode: 'DISCONNECTED',
         dumpAvailable: false,

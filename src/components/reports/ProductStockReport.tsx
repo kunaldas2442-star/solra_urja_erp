@@ -237,7 +237,7 @@ export const ProductStockReport: React.FC<ProductStockReportProps> = ({
         ];
       });
       exportToCSV(
-        `SolarPulse_Stock_Valuation_${selectedWarehouse ? selectedWarehouse.code : 'All_Hubs'}_${new Date().toISOString().slice(0, 10)}`,
+        `SolarUrja_Stock_Valuation_${selectedWarehouse ? selectedWarehouse.code : 'All_Hubs'}_${new Date().toISOString().slice(0, 10)}`,
         headers,
         rows
       );
@@ -270,7 +270,7 @@ export const ProductStockReport: React.FC<ProductStockReportProps> = ({
         m.notes || ''
       ]);
       exportToCSV(
-        `SolarPulse_Stock_Movements_Ledger_${new Date().toISOString().slice(0, 10)}`,
+        `SolarUrja_Stock_Movements_Ledger_${new Date().toISOString().slice(0, 10)}`,
         headers,
         rows
       );
@@ -299,7 +299,7 @@ export const ProductStockReport: React.FC<ProductStockReportProps> = ({
         a.notes
       ]);
       exportToCSV(
-        `SolarPulse_Physical_Audits_Register_${new Date().toISOString().slice(0, 10)}`,
+        `SolarUrja_Physical_Audits_Register_${new Date().toISOString().slice(0, 10)}`,
         headers,
         rows
       );
