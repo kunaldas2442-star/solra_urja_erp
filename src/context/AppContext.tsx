@@ -94,7 +94,8 @@ interface AppContextType {
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
   settings: SystemSettings;
-  updateSettings: (newSettings: SystemSettings) => void;
+  updateSettings: (newSettings: SystemSettings) => Promise<void>;
+  refreshSettings: () => Promise<SystemSettings>;
   toasts: ToastMessage[];
   showToast: (text: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
   removeToast: (id: string) => void;
@@ -635,10 +636,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(storageService.getNotifications());
   };
 
-  const updateSettings = (newSettings: SystemSettings) => {
-    storageService.saveSettings(newSettings);
-    setSettings(newSettings);
-    showToast('System configuration saved successfully', 'success');
+  const refreshSettings = async (): Promise<SystemSettings> => {
+    const fresh = await storageService.fetchSettingsFromBackend();
+    setSettings(fresh);
+    return fresh;
+  };
+
+  const updateSettings = async (newSettings: SystemSettings): Promise<void> => {
+    try {
+      const saved = await storageService.saveSettingsAsync(newSettings);
+      setSettings(saved);
+      showToast('System configuration saved successfully', 'success');
+    } catch (err: any) {
+      const msg = err?.message || 'Failed to save EPC Settings to MySQL';
+      setSyncError(msg);
+      showToast(msg, 'error');
+      throw err;
+    }
   };
 
   const showToast = (text: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
@@ -683,6 +697,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markAllNotificationsRead,
         settings,
         updateSettings,
+        refreshSettings,
         toasts,
         showToast,
         removeToast,

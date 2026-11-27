@@ -1,6 +1,6 @@
 import { jsPDF, GState } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Quotation } from '../types/solar';
+import { Quotation, SystemSettings } from '../types/solar';
 import { formatINR, numberToIndianWords } from './indianNumberWords';
 import { SOLAR_URJA_LOGO_BASE64 } from './logoData';
 
@@ -176,12 +176,17 @@ export function applyWatermarkOverlayToDoc(
   }
 }
 
-export function generateQuotationPdf(quote: Quotation): jsPDF {
+export function generateQuotationPdf(quote: Quotation, epcSettings?: Partial<SystemSettings>): jsPDF {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4'
   });
+
+  const epcName = (epcSettings?.companyName || '').trim() || 'SOLAR URJA ERP';
+  const epcAddress = (epcSettings?.companyAddress || '').trim();
+  const epcPhone = (epcSettings?.companyPhone || '').trim();
+  const epcEmail = (epcSettings?.companyEmail || '').trim();
 
   const pageWidth = 210;
   const pageHeight = 297;
@@ -246,7 +251,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-    doc.text('SOLAR URJA ERP', margin + 38, 10);
+    doc.text(epcName.toUpperCase(), margin + 38, 10);
 
     doc.setFontSize(6.5);
     doc.setFont('helvetica', 'normal');
@@ -406,17 +411,36 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-  doc.text('SOLAR URJA ERP', epcX + 4, colY + 12);
+  doc.text(epcName, epcX + 4, colY + 12);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(slateMuted[0], slateMuted[1], slateMuted[2]);
   doc.text('CREDA Approved Solar EPC Contractor', epcX + 4, colY + 16.5);
-  doc.text('Plot No. 14, St No 14/b, Pragati Nagar Risali', epcX + 4, colY + 22);
-  doc.text('Civic Centre, Bhilai, Durg, CG - 490006', epcX + 4, colY + 27);
-  doc.text('Phone: +91 9770577527 / +91 7803844457', epcX + 4, colY + 32);
-  doc.text('Email: support@solar.klyiatechnology.com', epcX + 4, colY + 37);
-  doc.text('Web: solar.klyiatechnology.com | ISO 9001:2015', epcX + 4, colY + 42);
+
+  const epcMaxW = colW - 8;
+  let epcCurY = colY + 21.5;
+  const addrLines: string[] = epcAddress
+    ? doc.splitTextToSize(epcAddress, epcMaxW).slice(0, 3)
+    : ['—'];
+  addrLines.forEach((line: string) => {
+    doc.text(line, epcX + 4, epcCurY);
+    epcCurY += 4.2;
+  });
+
+  const phoneLines: string[] = doc.splitTextToSize(`Helpline: ${epcPhone || '—'}`, epcMaxW).slice(0, 2);
+  phoneLines.forEach((line: string) => {
+    doc.text(line, epcX + 4, epcCurY);
+    epcCurY += 4.2;
+  });
+
+  const emailLines: string[] = doc.splitTextToSize(`Email: ${epcEmail || '—'}`, epcMaxW).slice(0, 1);
+  doc.text(emailLines[0], epcX + 4, epcCurY);
+  epcCurY += 4.2;
+
+  if (epcCurY <= colY + colH - 2) {
+    doc.text('Web: solar.klyiatechnology.com | ISO 9001:2015', epcX + 4, epcCurY);
+  }
 
   // Executive Project Summary Table
   const sumY = colY + colH + 6;
@@ -1911,7 +1935,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.text('ACCOUNT NUMBER:', margin + 6, curY + 17);
 
   doc.setTextColor(slateDark[0], slateDark[1], slateDark[2]);
-  doc.text('SOLAR URJA ERP', margin + 35, curY + 6);
+  doc.text(epcName.toUpperCase(), margin + 35, curY + 6);
   doc.text('ICICI Bank / HDFC Bank Limited', margin + 35, curY + 11.5);
   doc.text('50200088991234 (Current Account)', margin + 35, curY + 17);
 
@@ -1943,7 +1967,7 @@ export function generateQuotationPdf(quote: Quotation): jsPDF {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(primaryDark[0], primaryDark[1], primaryDark[2]);
-  doc.text('FOR SOLAR URJA ERP', margin + 4, curY + 4.5);
+  doc.text(`FOR ${epcName.toUpperCase()}`, margin + 4, curY + 4.5);
 
   // Contractor Signature Line
   doc.setDrawColor(203, 213, 225);

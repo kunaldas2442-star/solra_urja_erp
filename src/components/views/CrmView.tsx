@@ -48,7 +48,9 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
     showToast,
     triggerRefresh,
     refreshTrigger,
-    setActiveView
+    setActiveView,
+    settings,
+    refreshSettings
   } = useApp();
   const { currentUser, canAccessModule, hasPermission } = useAuth();
 
@@ -89,6 +91,12 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
       else if (defaultTab === 'QUOTATIONS' && canQuotationsTab) setActiveTab('QUOTATIONS');
     }
   }, [activeView, defaultTab, canLeadsTab, canCustomersTab, canQuotationsTab]);
+
+  useEffect(() => {
+    if (activeTab === 'QUOTATIONS') {
+      refreshSettings().catch(() => {});
+    }
+  }, [activeTab]);
   const [searchTerm, setSearchTerm] = useState('');
   const [leadViewMode, setLeadViewMode] = useState<'KANBAN' | 'LIST'>('KANBAN');
 
@@ -406,9 +414,10 @@ export const CrmView: React.FC<{ defaultTab?: 'LEADS' | 'CUSTOMERS' | 'QUOTATION
     }
   };
 
-  const handleDirectDownloadPdf = (q: Quotation) => {
+  const handleDirectDownloadPdf = async (q: Quotation) => {
     try {
-      generateQuotationPdf(q);
+      const latestSettings = await refreshSettings().catch(() => settings);
+      generateQuotationPdf(q, latestSettings);
       showToast(`Downloaded PDF for ${q.quotationNumber}`, 'success');
     } catch (err: any) {
       showToast(`Failed to generate PDF: ${err.message || err}`, 'error');

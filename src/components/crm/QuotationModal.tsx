@@ -25,7 +25,7 @@ import {
   ClipboardCopy,
   Info
 } from 'lucide-react';
-import { Customer, Quotation, QuotationItem, QuotationPaymentMilestone, ProductItem } from '../../types/solar';
+import { Customer, Quotation, QuotationItem, QuotationPaymentMilestone, ProductItem, SystemSettings } from '../../types/solar';
 import { numberToIndianWords, formatINR } from '../../utils/indianNumberWords';
 import {
   REFERENCE_5KW_BOM,
@@ -52,7 +52,25 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
   editQuotation,
   customers
 }) => {
-  const { refreshTrigger } = useApp();
+  const { refreshTrigger, settings, refreshSettings } = useApp();
+  const [epcSettings, setEpcSettings] = useState<SystemSettings>(settings);
+
+  useEffect(() => {
+    setEpcSettings(settings);
+  }, [settings]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    refreshSettings()
+      .then(fresh => {
+        if (active && fresh) setEpcSettings(fresh);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
   // Active Form Section Tab
   const [activeTab, setActiveTab] = useState<'details' | 'bom' | 'cost' | 'milestones'>('details');
 
@@ -802,6 +820,45 @@ export const QuotationModal: React.FC<QuotationModalProps> = ({
                       <option value="REJECTED">REJECTED</option>
                       <option value="EXPIRED">EXPIRED</option>
                     </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prepared By (Solar EPC Contractor) — Live from EPC Settings */}
+              <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200/80">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-amber-900 flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-amber-700" />
+                    <span>Prepared By (Solar EPC Contractor)</span>
+                  </h3>
+                  <span className="text-[10px] font-semibold text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md self-start sm:self-auto">
+                    Live from EPC Settings
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                  <div className="bg-white rounded-xl p-2.5 border border-amber-200/70">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Contractor Name</span>
+                    <span className="font-bold text-[#0F2954] mt-0.5 block">
+                      {(epcSettings?.companyName || '').trim() || 'Solar Urja ERP'}
+                    </span>
+                  </div>
+                  <div className="bg-white rounded-xl p-2.5 border border-amber-200/70">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Company Address</span>
+                    <span className="font-medium text-slate-700 mt-0.5 block break-words">
+                      {(epcSettings?.companyAddress || '').trim() || '—'}
+                    </span>
+                  </div>
+                  <div className="bg-white rounded-xl p-2.5 border border-amber-200/70">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Helpline / Contact Number</span>
+                    <span className="font-semibold text-slate-800 mt-0.5 block">
+                      {(epcSettings?.companyPhone || '').trim() || '—'}
+                    </span>
+                  </div>
+                  <div className="bg-white rounded-xl p-2.5 border border-amber-200/70">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Email Address</span>
+                    <span className="font-semibold text-slate-800 mt-0.5 block break-all">
+                      {(epcSettings?.companyEmail || '').trim() || '—'}
+                    </span>
                   </div>
                 </div>
               </div>

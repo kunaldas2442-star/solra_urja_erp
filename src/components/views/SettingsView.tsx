@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp, SettingsTab } from '../../context/AppContext';
 import { useAuth, ROLE_DEFINITIONS } from '../../context/AuthContext';
 import { storageService } from '../../services/storage';
@@ -25,10 +25,19 @@ import {
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
-  const { settings, updateSettings, showToast, triggerRefresh, activeSettingsTab, setActiveSettingsTab } = useApp();
+  const { settings, updateSettings, refreshSettings, showToast, triggerRefresh, activeSettingsTab, setActiveSettingsTab } = useApp();
   const { hasPermission, isAdmin, currentRole } = useAuth();
   const [form, setForm] = useState<SystemSettings>({ ...settings });
   const [isTestingTally, setIsTestingTally] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setForm({ ...settings });
+  }, [settings]);
+
+  useEffect(() => {
+    refreshSettings().catch(() => {});
+  }, []);
 
   const canGeneral = hasPermission('settings.manage');
   const canTally = hasPermission('settings.tally');
@@ -69,10 +78,17 @@ export const SettingsView: React.FC = () => {
     'general';
   const currentTab: SettingsTab = isTabAllowed(requestedTab) ? requestedTab : fallbackTab;
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateSettings(form);
-    showToast('System integration settings saved successfully', 'success');
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await updateSettings(form);
+    } catch {
+      // Toast and syncError are already handled in updateSettings
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleTestTally = () => {
@@ -448,10 +464,11 @@ export const SettingsView: React.FC = () => {
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 px-6 py-2.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-xl transition-all shadow-md"
+              disabled={isSaving}
+              className="inline-flex items-center gap-1.5 px-6 py-2.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 disabled:opacity-50 rounded-xl transition-all shadow-md"
             >
               <Save className="w-4 h-4" />
-              <span>Save Configuration</span>
+              <span>{isSaving ? 'Saving to MySQL...' : 'Save Configuration'}</span>
             </button>
           </div>
         </form>

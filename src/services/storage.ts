@@ -133,11 +133,11 @@ const initialPurchaseReturns: PurchaseReturn[] = [];
 const initialStockMovements: StockMovement[] = [];
 
 const initialSettings: SystemSettings = {
-  companyName: 'SOLAR URJA ERP',
-  companyAddress: 'PLOT NO- 14, STREET NO- 14B, PRAGATI NAGAR, RISALI BHILAI, Chhattisgarh 490006',
-  companyPhone: '+91 98250 12345',
-  companyEmail: 'support@solar.klyiatechnology.com',
-  companyGst: '22AAOCR0748K1Z5',
+  companyName: 'Solar Urja ERP',
+  companyAddress: '',
+  companyPhone: '',
+  companyEmail: '',
+  companyGst: '',
   logoUrl: '/assets/aistudio/solar_urja_logo_07b84efe.jpeg',
   currencySymbol: '₹',
   taxRatePercent: 18,
@@ -2722,11 +2722,42 @@ class StorageService {
 
   // --- Settings ---
   getSettings(): SystemSettings {
-    const settings = this.get<SystemSettings>(STORAGE_KEYS.SETTINGS, initialSettings);
-    if (!settings.logoUrl || settings.logoUrl === '/logo-dark.png') {
-      settings.logoUrl = initialSettings.logoUrl || '/assets/aistudio/solar_urja_logo_07b84efe.jpeg';
+    const raw = this.get<Partial<SystemSettings>>(STORAGE_KEYS.SETTINGS, initialSettings);
+    const merged: SystemSettings = {
+      ...initialSettings,
+      ...(raw && typeof raw === 'object' ? raw : {})
+    };
+    if (!merged.logoUrl || merged.logoUrl === '/logo-dark.png') {
+      merged.logoUrl = initialSettings.logoUrl || '/assets/aistudio/solar_urja_logo_07b84efe.jpeg';
     }
-    return settings;
+    return merged;
+  }
+
+  setSettingsInMemory(settings: Partial<SystemSettings>): SystemSettings {
+    const normalized: SystemSettings = {
+      ...initialSettings,
+      ...(settings && typeof settings === 'object' ? settings : {})
+    };
+    if (!normalized.logoUrl || normalized.logoUrl === '/logo-dark.png') {
+      normalized.logoUrl = initialSettings.logoUrl || '/assets/aistudio/solar_urja_logo_07b84efe.jpeg';
+    }
+    this.memStore.set(STORAGE_KEYS.SETTINGS, normalized);
+    return normalized;
+  }
+
+  async fetchSettingsFromBackend(): Promise<SystemSettings> {
+    const remote = await apiClient.getSettings();
+    return this.setSettingsInMemory(remote || {});
+  }
+
+  async saveSettingsAsync(settings: SystemSettings): Promise<SystemSettings> {
+    const saved = await apiClient.saveSettings(settings);
+    const normalized = this.setSettingsInMemory(saved || settings);
+    this.lastSyncError = null;
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('solarpulse_storage_updated'));
+    }
+    return normalized;
   }
 
   saveSettings(settings: SystemSettings): void {

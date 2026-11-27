@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Printer,
@@ -26,7 +26,7 @@ import {
   Clock,
   FileCheck
 } from 'lucide-react';
-import { Quotation } from '../../types/solar';
+import { Quotation, SystemSettings } from '../../types/solar';
 import { formatINR, numberToIndianWords } from '../../utils/indianNumberWords';
 import { generateQuotationPdf, WATERMARK_TEXT } from '../../utils/quotationPdfGenerator';
 import { useApp } from '../../context/AppContext';
@@ -46,11 +46,36 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
   onClose,
   onShareWhatsApp
 }) => {
-  const { openEmailModal } = useApp();
+  const { openEmailModal, settings, refreshSettings } = useApp();
+  const [epcSettings, setEpcSettings] = useState<SystemSettings>(settings);
   const [zoom, setZoom] = useState<number>(100);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setEpcSettings(settings);
+  }, [settings]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    refreshSettings()
+      .then(fresh => {
+        if (active && fresh) {
+          setEpcSettings(fresh);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const epcCompanyName = (epcSettings?.companyName || '').trim() || 'Solar Urja ERP';
+  const epcCompanyAddress = (epcSettings?.companyAddress || '').trim();
+  const epcCompanyPhone = (epcSettings?.companyPhone || '').trim();
+  const epcCompanyEmail = (epcSettings?.companyEmail || '').trim();
 
   const handleEmailQuote = () => {
     const customers = storageService.getCustomers();
@@ -74,8 +99,13 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
     void triggerSafeWindowPrint(['/assets/aistudio/solar_urja_logo_07b84efe.jpeg']);
   };
 
-  const handleDownload = () => {
-    generateQuotationPdf(quotation);
+  const handleDownload = async () => {
+    let latest = epcSettings;
+    try {
+      latest = await refreshSettings();
+      setEpcSettings(latest);
+    } catch {}
+    generateQuotationPdf(quotation, latest);
   };
 
   const scrollToPage = (pageIndex: number) => {
@@ -142,7 +172,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
         <div className="flex items-center gap-2.5">
           <img src="/assets/aistudio/solar_urja_logo_07b84efe.jpeg" alt="Solar Urja ERP" className="h-8 w-auto object-contain" />
           <div>
-            <span className="font-black text-xs text-[#0F2954] tracking-wider">SOLAR URJA ERP</span>
+            <span className="font-black text-xs text-[#0F2954] tracking-wider">{epcCompanyName.toUpperCase()}</span>
             <span className="text-[10px] text-[#16A34A] block -mt-1 font-semibold">solar.klyiatechnology.com</span>
           </div>
         </div>
@@ -264,15 +294,18 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
                     Prepared By (Solar EPC Contractor)
                   </div>
                   <div className="p-3 text-xs space-y-1 text-slate-600">
-                    <p className="font-bold text-[#0F2954] text-sm">Solar Urja ERP</p>
+                    <p className="font-bold text-[#0F2954] text-sm">{epcCompanyName}</p>
                     <p className="font-semibold text-slate-700 text-[11px]">CREDA Approved Solar Rooftop EPC Contractor</p>
-                    <p className="text-[11px] leading-tight">Plot No. 14, St. 14/b, Pragati Nagar Risali, Bhilai, CG</p>
-                    <p className="text-[11px] text-slate-500">Branch Office: Raipur, Chhattisgarh - 492001</p>
+                    <p className="text-[11px] leading-tight whitespace-pre-line">
+                      {epcCompanyAddress || <span className="text-slate-400">—</span>}
+                    </p>
                     <p className="text-[11px] pt-1">
-                      <span className="font-semibold text-slate-700">Helpline:</span> +91 97705 77527 / +91 78038 44457
+                      <span className="font-semibold text-slate-700">Helpline:</span>{' '}
+                      {epcCompanyPhone || <span className="text-slate-400">—</span>}
                     </p>
                     <p className="text-[11px]">
-                      <span className="font-semibold text-slate-700">Email:</span> support@solar.klyiatechnology.com
+                      <span className="font-semibold text-slate-700">Email:</span>{' '}
+                      {epcCompanyEmail || <span className="text-slate-400">—</span>}
                     </p>
                     <p className="text-[11px]">
                       <span className="font-semibold text-slate-700">Web:</span> solar.klyiatechnology.com
@@ -1294,7 +1327,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
                 <table className="w-full text-xs">
                   <tbody className="divide-y divide-slate-200 bg-white">
                     {[
-                      ['Beneficiary Name', 'Solar Urja ERP'],
+                      ['Beneficiary Name', epcCompanyName],
                       ['Bank Name', 'HDFC Bank Ltd.'],
                       ['Account Number', '50200084729103'],
                       ['Account Type', 'Current Account'],
@@ -1314,7 +1347,7 @@ export const QuotationPdfPreviewModal: React.FC<QuotationPdfPreviewModalProps> =
               <div className="mt-4 grid grid-cols-2 gap-3.5">
                 <div className="p-3 bg-white/90 rounded-xl border border-slate-200 flex flex-col justify-between h-28 relative overflow-hidden">
                   <div>
-                    <span className="font-bold text-[#0F2954] text-xs block">FOR SOLAR URJA ERP</span>
+                    <span className="font-bold text-[#0F2954] text-xs block">FOR {epcCompanyName.toUpperCase()}</span>
                     <span className="text-[10px] text-slate-500">CREDA Approved Turnkey EPC Contractor</span>
                   </div>
                   <div className="border-t border-slate-200 pt-1 text-[10px] text-slate-500 relative z-10">

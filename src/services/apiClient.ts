@@ -1370,7 +1370,7 @@ class ApiClient {
 
   // --- Settings ---
   async getSettings(): Promise<any> {
-    const res = await this.request(`${this.baseUrl}/settings`);
+    const res = await this.request(`${this.baseUrl}/settings`, { cache: 'no-store' });
     return await this.handleResponse(res);
   }
 
