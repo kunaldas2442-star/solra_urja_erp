@@ -32,7 +32,7 @@ export const GlobalFooter: React.FC<GlobalFooterProps> = ({ className = '' }) =>
     >
       <div className="h-0.5 w-full bg-gradient-to-r from-[#F97316] via-[#16A34A] to-[#0F2954]" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
           {/* Solar Urja ERP Identity */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">

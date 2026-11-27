@@ -14,7 +14,6 @@ import {
   Copy,
   Check,
   UserCheck,
-  AlertTriangle,
   Globe
 } from 'lucide-react';
 
@@ -214,16 +213,16 @@ export const LoginView: React.FC = () => {
       {/* Subtle Top Brand Accent Bar */}
       <div className="h-1.5 w-full bg-gradient-to-r from-[#F97316] via-[#16A34A] to-[#0F2954]" />
 
-      {/* Main Content Container */}
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 flex flex-col justify-center">
+      {/* Main Content Container (Full-Width Responsive Layout) */}
+      <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-5 sm:py-6 flex flex-col justify-center">
         {/* Header Brand Strip */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-slate-200/90">
-          <div className="flex items-center gap-4">
-            <div className="bg-white border border-slate-200 rounded-2xl px-3.5 py-2 shadow-2xs shrink-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-5 border-b border-slate-200/90">
+          <div className="flex items-center gap-3.5">
+            <div className="bg-white border border-slate-200 rounded-2xl px-3 py-1.5 shadow-2xs shrink-0">
               <img
                 src="/assets/aistudio/solar_urja_logo_07b84efe.jpeg"
                 alt="Solar Urja ERP"
-                className="h-11 sm:h-12 w-auto object-contain"
+                className="h-10 sm:h-11 w-auto object-contain"
               />
             </div>
             <div>
@@ -242,18 +241,19 @@ export const LoginView: React.FC = () => {
           </div>
         </div>
 
-        {/* Two-Column Responsive Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+        {/* Full-Width Two-Column Responsive Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-stretch">
           {/* Left Column: Sign-In Form Card */}
-          <section className="lg:col-span-5 bg-white rounded-2xl p-6 sm:p-7 border border-slate-200 shadow-sm">
-            <div className="mb-5">
-              <h2 className="text-lg font-extrabold text-[#0F2954] tracking-tight">
-                Sign in to Workspace
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Select a user type below to auto-fill demo credentials, or sign in with your assigned account.
-              </p>
-            </div>
+          <section className="lg:col-span-4 xl:col-span-3 bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="mb-4">
+                <h2 className="text-lg font-extrabold text-[#0F2954] tracking-tight">
+                  Sign in to Workspace
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  Select a user type below or pick a role card from the directory to sign in.
+                </p>
+              </div>
 
             {errorMessage && (
               <div className="mb-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800">
@@ -405,6 +405,8 @@ export const LoginView: React.FC = () => {
               </button>
             </form>
 
+            </div>
+
             <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
               <span className="flex items-center gap-1.5 font-medium">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#16A34A]" />
@@ -414,135 +416,125 @@ export const LoginView: React.FC = () => {
             </div>
           </section>
 
-          {/* Right Column: Demo Credentials Directory */}
-          <section className="lg:col-span-7 bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
-            {/* Production Security Warning Banner */}
-            <div className="p-3.5 bg-orange-50/80 border border-orange-200 rounded-xl flex items-start gap-3">
-              <AlertTriangle className="w-4 h-4 text-[#EA580C] shrink-0 mt-0.5" />
-              <div className="text-xs leading-relaxed">
-                <p className="font-bold text-[#0F2954]">
-                  Demo Credentials Notice — Change Passwords Before Production Deployment
-                </p>
-                <p className="text-slate-600 mt-0.5">
-                  The accounts below are pre-seeded <span className="font-semibold text-slate-800">demo credentials</span> for evaluation across all 11 portal roles. Administrators can update passwords and manage accounts inside <span className="font-semibold text-[#0F2954]">Administration → User Management</span>.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
+          {/* Right Column: Seeded Role Credentials Directory (All 11 Roles Visible, No Scrollbars) */}
+          <section className="lg:col-span-8 xl:col-span-9 bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-3.5 border-b border-slate-100">
               <div>
                 <h3 className="text-sm font-extrabold text-[#0F2954]">
                   Seeded Role Credentials Directory
                 </h3>
-                <p className="text-[11px] text-slate-500">
-                  Click any role row to load into the sign-in form, or copy email/password individually.
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Click any role card to load credentials into the sign-in form, or copy email and password individually.
                 </p>
               </div>
-              <span className="text-[11px] font-bold text-[#16A34A] bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg tabular-nums">
-                11 Roles Active
-              </span>
+              <div className="text-[11px] font-semibold text-[#16A34A] whitespace-nowrap shrink-0 tabular-nums">
+                11 Portal Roles · Simultaneous View
+              </div>
             </div>
 
-            {/* Responsive Table / Cards */}
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <div className="overflow-x-auto max-h-[430px] overflow-y-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
-                    <tr className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      <th className="py-2.5 px-3">User Type</th>
-                      <th className="py-2.5 px-3">Demo Email</th>
-                      <th className="py-2.5 px-3">Password</th>
-                      <th className="py-2.5 px-3 text-right">Fill</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {DEMO_ACCOUNTS.map((acc) => {
-                      const isSelected = selectedUserType === acc.userType;
-                      const emailCopied = copiedKey === `email-${acc.userType}`;
-                      const passCopied = copiedKey === `pass-${acc.userType}`;
+            {/* Compact Multi-Column Grid — Zero Internal Vertical or Horizontal Scrolling */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+              {DEMO_ACCOUNTS.map((acc) => {
+                const isSelected = selectedUserType === acc.userType;
+                const emailCopied = copiedKey === `email-${acc.userType}`;
+                const passCopied = copiedKey === `pass-${acc.userType}`;
 
-                      return (
-                        <tr
-                          key={acc.userType}
-                          onClick={() => handleSelectUserType(acc.userType)}
-                          className={`transition-colors cursor-pointer ${
-                            isSelected ? 'bg-orange-50/70' : 'hover:bg-slate-50'
-                          }`}
+                return (
+                  <div
+                    key={acc.userType}
+                    onClick={() => handleSelectUserType(acc.userType)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectUserType(acc.userType);
+                      }
+                    }}
+                    className={`rounded-xl border px-3 py-2.5 transition-colors cursor-pointer flex flex-col justify-between gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F97316] ${
+                      isSelected
+                        ? 'border-[#F97316] bg-orange-50/45'
+                        : 'border-slate-200 bg-slate-50/40 hover:border-slate-300 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-extrabold text-[#0F2954] leading-tight">
+                          {acc.userType}
+                        </div>
+                        <div className="text-[11px] text-slate-500 leading-snug mt-0.5">
+                          {acc.scope}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectUserType(acc.userType);
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                          isSelected
+                            ? 'bg-[#0F2954] text-white'
+                            : 'bg-slate-200/70 text-[#0F2954] hover:bg-[#F97316] hover:text-white'
+                        }`}
+                      >
+                        {isSelected ? 'Selected' : 'Use'}
+                      </button>
+                    </div>
+
+                    <div className="space-y-1 pt-1.5 border-t border-slate-200/70">
+                      <div className="flex items-center justify-between gap-1.5">
+                        <code className="text-[11px] font-mono text-slate-800 select-all break-all leading-tight">
+                          {acc.email}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleCopyText(acc.email, `email-${acc.userType}`);
+                          }}
+                          title={`Copy ${acc.userType} email`}
+                          aria-label={`Copy ${acc.userType} email`}
+                          className="p-1 rounded-md text-slate-500 hover:text-[#0F2954] hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
                         >
-                          <td className="py-2.5 px-3 align-top">
-                            <div className="font-bold text-[#0F2954] whitespace-nowrap">
-                              {acc.userType}
-                            </div>
-                            <div className="text-[10px] text-slate-500 leading-tight mt-0.5">
-                              {acc.scope}
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 align-middle">
-                            <div className="flex items-center gap-1.5">
-                              <code className="text-[11px] font-mono text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
-                                {acc.email}
-                              </code>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void handleCopyText(acc.email, `email-${acc.userType}`);
-                                }}
-                                title="Copy demo email"
-                                className="p-1 rounded-md text-slate-400 hover:text-[#0F2954] hover:bg-slate-100 transition-colors cursor-pointer"
-                              >
-                                {emailCopied ? (
-                                  <Check className="w-3.5 h-3.5 text-[#16A34A]" />
-                                ) : (
-                                  <Copy className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 align-middle">
-                            <div className="flex items-center gap-1.5">
-                              <code className="text-[11px] font-mono text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">
-                                {acc.password}
-                              </code>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void handleCopyText(acc.password, `pass-${acc.userType}`);
-                                }}
-                                title="Copy demo password"
-                                className="p-1 rounded-md text-slate-400 hover:text-[#0F2954] hover:bg-slate-100 transition-colors cursor-pointer"
-                              >
-                                {passCopied ? (
-                                  <Check className="w-3.5 h-3.5 text-[#16A34A]" />
-                                ) : (
-                                  <Copy className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 text-right align-middle">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectUserType(acc.userType);
-                              }}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
-                                isSelected
-                                  ? 'bg-[#0F2954] text-white'
-                                  : 'bg-slate-100 text-[#0F2954] hover:bg-[#F97316] hover:text-white'
-                              }`}
-                            >
-                              {isSelected ? 'Selected' : 'Use'}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          {emailCopied ? (
+                            <Check className="w-3.5 h-3.5 text-[#16A34A]" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[10px] font-semibold text-slate-400 shrink-0">
+                            Pass:
+                          </span>
+                          <code className="text-[11px] font-mono font-semibold text-slate-800 select-all whitespace-nowrap leading-tight">
+                            {acc.password}
+                          </code>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleCopyText(acc.password, `pass-${acc.userType}`);
+                          }}
+                          title={`Copy ${acc.userType} password`}
+                          aria-label={`Copy ${acc.userType} password`}
+                          className="p-1 rounded-md text-slate-500 hover:text-[#0F2954] hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
+                        >
+                          {passCopied ? (
+                            <Check className="w-3.5 h-3.5 text-[#16A34A]" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
         </div>
