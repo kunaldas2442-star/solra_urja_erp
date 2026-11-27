@@ -13,6 +13,7 @@ export interface AuthCredentialRecord {
   role: string;
   account_type: AccountType;
   linked_entity_id?: string | null;
+  must_change_password?: number | boolean;
   status: string;
   failed_login_attempts: number;
   last_login_at?: string | null;
@@ -33,6 +34,7 @@ export interface SanitizedUser {
   department?: string;
   designation?: string;
   isFieldWorker: boolean;
+  mustChangePassword?: boolean;
   accountType: AccountType;
   status: string;
 }
@@ -70,8 +72,7 @@ export class AuthService {
     if (hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$')) {
       return bcrypt.compare(clean, hash);
     }
-    // Backward compatibility for legacy plaintext during migration
-    return clean === hash;
+    return false;
   }
 
   /**
@@ -89,6 +90,7 @@ export class AuthService {
           \`role\` VARCHAR(64) NOT NULL,
           \`account_type\` ENUM('ADMIN', 'EMPLOYEE', 'CUSTOMER') NOT NULL,
           \`linked_entity_id\` VARCHAR(64) DEFAULT NULL,
+          \`must_change_password\` TINYINT(1) NOT NULL DEFAULT 0,
           \`status\` VARCHAR(32) DEFAULT 'ACTIVE',
           \`failed_login_attempts\` INT DEFAULT 0,
           \`last_login_at\` TIMESTAMP NULL DEFAULT NULL,
@@ -101,6 +103,13 @@ export class AuthService {
           INDEX \`idx_auth_cred_status\` (\`status\`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
+
+      try {
+        const [credCols]: any = await pool.query("SHOW COLUMNS FROM `solar_auth_credentials` LIKE 'must_change_password'");
+        if (!Array.isArray(credCols) || credCols.length === 0) {
+          await pool.query('ALTER TABLE `solar_auth_credentials` ADD COLUMN `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `linked_entity_id`');
+        }
+      } catch {}
 
       // 2. Create server-managed session storage table
       await pool.query(`
@@ -149,32 +158,38 @@ export class AuthService {
             const email = String(u.email).trim().toLowerCase();
             const rawPass = String(u.password);
             const passwordHash = await this.hashPassword(rawPass);
+            if (rawPass !== passwordHash) {
+              await pool.query('UPDATE `solar_users` SET `password` = ? WHERE `id` = ?', [passwordHash, u.id]).catch(() => {});
+            }
             const accountType: AccountType = (u.role === 'Customer') ? 'CUSTOMER' : (u.role === 'Admin' || u.role === 'Super Admin') ? 'ADMIN' : 'EMPLOYEE';
             const linkedEntityId = u.employee_id || u.customer_id || u.id;
             const status = u.status === 'DISABLED' || u.status === 'INACTIVE' ? 'DISABLED' : 'ACTIVE';
+            const mustChange = u.must_change_password ? 1 : 0;
 
-            await pool.query(`
-              INSERT INTO \`solar_auth_credentials\` (
-                \`id\`, \`user_id\`, \`email\`, \`password_hash\`, \`role\`,
-                \`account_type\`, \`linked_entity_id\`, \`status\`
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-              ON DUPLICATE KEY UPDATE
-                \`role\` = VALUES(\`role\`),
-                \`account_type\` = VALUES(\`account_type\`),
-                \`linked_entity_id\` = COALESCE(VALUES(\`linked_entity_id\`), \`linked_entity_id\`),
-                \`status\` = VALUES(\`status\`)
-                ${!u.password?.startsWith('$2') ? ', `password_hash` = VALUES(`password_hash`)' : ''}
-            `, [
-              `cred-${u.id}`,
-              u.id,
-              email,
-              passwordHash,
-              u.role || 'Admin',
-              accountType,
-              linkedEntityId,
-              status
-            ]);
-            migratedUsers++;
+            const [existingCred]: any = await pool.query(
+              'SELECT `id`, `password_hash` FROM `solar_auth_credentials` WHERE `user_id` = ? OR LOWER(`email`) = ? LIMIT 1',
+              [u.id, email]
+            );
+
+            if (!Array.isArray(existingCred) || existingCred.length === 0) {
+              await pool.query(`
+                INSERT IGNORE INTO \`solar_auth_credentials\` (
+                  \`id\`, \`user_id\`, \`email\`, \`password_hash\`, \`role\`,
+                  \`account_type\`, \`linked_entity_id\`, \`must_change_password\`, \`status\`
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `, [
+                `cred-${u.id}`,
+                u.id,
+                email,
+                passwordHash,
+                u.role || 'Admin',
+                accountType,
+                linkedEntityId,
+                mustChange,
+                status
+              ]);
+              migratedUsers++;
+            }
           }
         }
       } catch (err: any) {
@@ -261,16 +276,10 @@ export class AuthService {
             const status = c.status === 'INACTIVE' ? 'DISABLED' : 'ACTIVE';
 
             await pool.query(`
-              INSERT INTO \`solar_auth_credentials\` (
+              INSERT IGNORE INTO \`solar_auth_credentials\` (
                 \`id\`, \`user_id\`, \`email\`, \`password_hash\`, \`role\`,
-                \`account_type\`, \`linked_entity_id\`, \`status\`
-              ) VALUES (?, ?, ?, ?, 'Customer', 'CUSTOMER', ?, ?)
-              ON DUPLICATE KEY UPDATE
-                \`role\` = 'Customer',
-                \`account_type\` = 'CUSTOMER',
-                \`linked_entity_id\` = VALUES(\`linked_entity_id\`),
-                \`status\` = VALUES(\`status\`)
-                ${!c.password?.startsWith('$2') ? ', `password_hash` = VALUES(`password_hash`)' : ''}
+                \`account_type\`, \`linked_entity_id\`, \`must_change_password\`, \`status\`
+              ) VALUES (?, ?, ?, ?, 'Customer', 'CUSTOMER', ?, 0, ?)
             `, [
               `cred-cust-${c.id}`,
               `usr-${c.id}`,
@@ -302,24 +311,27 @@ export class AuthService {
     role: string;
     accountType: AccountType;
     linkedEntityId?: string | null;
+    mustChangePassword?: boolean;
     status?: string;
   }): Promise<void> {
     const cleanEmail = data.email.trim().toLowerCase();
     const status = data.status || 'ACTIVE';
+    const mustChangeFlag = data.mustChangePassword ? 1 : 0;
 
     if (data.password) {
       const passwordHash = await this.hashPassword(data.password);
       await pool.query(`
         INSERT INTO \`solar_auth_credentials\` (
           \`id\`, \`user_id\`, \`email\`, \`password_hash\`, \`role\`,
-          \`account_type\`, \`linked_entity_id\`, \`status\`
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          \`account_type\`, \`linked_entity_id\`, \`must_change_password\`, \`status\`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON DUPLICATE KEY UPDATE
           \`email\` = VALUES(\`email\`),
           \`password_hash\` = VALUES(\`password_hash\`),
           \`role\` = VALUES(\`role\`),
           \`account_type\` = VALUES(\`account_type\`),
           \`linked_entity_id\` = VALUES(\`linked_entity_id\`),
+          \`must_change_password\` = VALUES(\`must_change_password\`),
           \`status\` = VALUES(\`status\`),
           \`password_changed_at\` = NOW()
       `, [
@@ -330,6 +342,7 @@ export class AuthService {
         data.role,
         data.accountType,
         data.linkedEntityId || data.userId,
+        mustChangeFlag,
         status
       ]);
     } else {
@@ -537,24 +550,30 @@ export class AuthService {
       return null;
     };
 
+    const mustChangePassword = Boolean(cred.must_change_password);
+    const withMustChange = (profile: SanitizedUser): SanitizedUser => ({
+      ...profile,
+      mustChangePassword
+    });
+
     if (cred.account_type === 'CUSTOMER') {
       const cProf = await resolveCustomer();
-      if (cProf) return cProf;
+      if (cProf) return withMustChange(cProf);
       const uProf = await resolveUser();
-      if (uProf) return uProf;
+      if (uProf) return withMustChange(uProf);
     } else if (cred.account_type === 'ADMIN') {
       const uProf = await resolveUser();
-      if (uProf) return uProf;
+      if (uProf) return withMustChange(uProf);
       const eProf = await resolveEmployee();
-      if (eProf) return eProf;
+      if (eProf) return withMustChange(eProf);
     } else {
       const eProf = await resolveEmployee();
-      if (eProf) return eProf;
+      if (eProf) return withMustChange(eProf);
       const uProf = await resolveUser();
-      if (uProf) return uProf;
+      if (uProf) return withMustChange(uProf);
     }
 
-    // Default fallback
+    // Default fallback from credential record
     return {
       id: cred.user_id,
       userId: cred.user_id,
@@ -562,6 +581,7 @@ export class AuthService {
       email: cred.email,
       role: cred.role,
       isFieldWorker: isFieldWorkerRole,
+      mustChangePassword,
       accountType: cred.account_type,
       status: cred.status
     };
@@ -631,27 +651,17 @@ export class AuthService {
     // Touch last_active_at
     await pool.query('UPDATE `solar_auth_sessions` SET `last_active_at` = NOW() WHERE `id` = ?', [cleanToken]).catch(() => {});
 
-    // Get current credentials and profile (fall back to session metadata if row was created by fallback login)
+    // Require an authoritative record in solar_auth_credentials (no synthetic session fallback)
     const [credRows]: any = await pool.query(
       'SELECT * FROM `solar_auth_credentials` WHERE `user_id` = ? OR LOWER(`email`) = ? LIMIT 1',
       [sess.user_id, String(sess.email || '').toLowerCase()]
     );
 
-    const cred: AuthCredentialRecord = (Array.isArray(credRows) && credRows.length > 0)
-      ? credRows[0]
-      : {
-          id: `sess-${sess.user_id}`,
-          user_id: sess.user_id,
-          email: String(sess.email || '').toLowerCase(),
-          password_hash: '',
-          role: sess.role || 'Admin',
-          account_type: (sess.account_type || 'ADMIN') as AccountType,
-          linked_entity_id: sess.linked_entity_id || sess.user_id,
-          status: 'ACTIVE',
-          failed_login_attempts: 0,
-          created_at: '',
-          updated_at: ''
-        };
+    if (!Array.isArray(credRows) || credRows.length === 0) {
+      return { valid: false, error: 'Account credentials not found in MySQL.' };
+    }
+
+    const cred: AuthCredentialRecord = credRows[0];
 
     if (['DISABLED', 'INACTIVE', 'TERMINATED', 'SUSPENDED'].includes(String(cred.status || 'ACTIVE').toUpperCase())) {
       return { valid: false, error: 'Account has been disabled.' };
@@ -690,17 +700,17 @@ export class AuthService {
     const passwordHash = await this.hashPassword(cleanPass);
     const idOrEmail = String(userIdOrEmail).trim().toLowerCase();
 
-    // 1. Update solar_auth_credentials
+    // 1. Update solar_auth_credentials and clear mandatory password change flag
     await pool.query(`
       UPDATE \`solar_auth_credentials\`
-      SET \`password_hash\` = ?, \`password_changed_at\` = NOW()
+      SET \`password_hash\` = ?, \`must_change_password\` = 0, \`password_changed_at\` = NOW()
       WHERE \`user_id\` = ? OR LOWER(\`email\`) = ?
     `, [passwordHash, idOrEmail, idOrEmail]);
 
     // 2. Synchronize to solar_users if exists
     await pool.query(`
       UPDATE \`solar_users\`
-      SET \`password\` = ?
+      SET \`password\` = ?, \`must_change_password\` = 0
       WHERE \`id\` = ? OR LOWER(\`email\`) = ?
     `, [passwordHash, idOrEmail, idOrEmail]).catch(() => {});
 

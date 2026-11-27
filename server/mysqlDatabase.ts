@@ -8,8 +8,8 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { ensureLocalMySqlRunning } from './mysqlDaemon';
 import { authService } from './services/authService';
+import { syncDefaultAuthAccounts } from './services/defaultAuthAccounts';
 import { accountingService } from './services/accountingService';
-import { inMemoryDbStore } from './inMemoryFallback';
 import {
   EmailSettingsRecord,
   SanitizedEmailSettings,
@@ -35,9 +35,9 @@ export function getDbConfigFromEnv(): DbConfig {
   return {
     host,
     port: Number(process.env.DB_PORT) || 3306,
-    user: (process.env.DB_USER || 'u238683373_rejoy_solar').trim(),
-    password: process.env.DB_PASS || process.env.DB_PASSWORD || ';Fl:$tn/9C&d',
-    database: (process.env.DB_NAME || 'u238683373_rejoy_solar').trim()
+    user: (process.env.DB_USER || '').trim(),
+    password: process.env.DB_PASS ?? process.env.DB_PASSWORD ?? '',
+    database: (process.env.DB_NAME || '').trim()
   };
 }
 
@@ -84,14 +84,21 @@ class MySqlDatabaseManager {
   public async init(): Promise<{ connected: boolean; error?: string }> {
     this.config = getDbConfigFromEnv();
 
+    if (!this.config.user || !this.config.database) {
+      this.isConnected = false;
+      this.pool = null;
+      console.error('[MySQL] Missing DB_USER or DB_NAME in environment/.env. Cannot initialize MySQL.');
+      return { connected: false, error: 'Missing DB_USER or DB_NAME in environment configuration' };
+    }
+
     const isLocalHost = this.config.host === '127.0.0.1' || this.config.host === 'localhost' || this.config.host === '::1' || !this.config.host;
     if (isLocalHost) {
       console.log('[MySQL] Target host is local. Ensuring local MySQL/MariaDB daemon is running...');
-      const isRunning = await ensureLocalMySqlRunning(this.config.host || '127.0.0.1', this.config.port);
+      const isRunning = await ensureLocalMySqlRunning(this.config.host || '127.0.0.1', this.config.port, this.config);
       if (!isRunning) {
         this.isConnected = false;
         this.pool = null;
-        console.warn(`[MySQL] Unavailable (${this.config.host}:${this.config.port} unreachable). Running in strict MySQL-only mode — API data requests will return HTTP 503 until MySQL connects.`);
+        console.warn('[MySQL] Local daemon unreachable. Running in strict MySQL-only mode — API requests will return HTTP 503 until MySQL connects.');
         return { connected: false, error: 'Local MySQL daemon is not running' };
       }
     }
@@ -180,6 +187,14 @@ class MySqlDatabaseManager {
         await this.pool.query(sql);
         console.log('[MySQL] Schema and production baseline verified in MySQL database.');
       }
+
+      // Ensure must_change_password column exists on solar_users for pre-existing schemas
+      try {
+        const [uCols]: any = await this.pool.query("SHOW COLUMNS FROM `solar_users` LIKE 'must_change_password'");
+        if (!Array.isArray(uCols) || uCols.length === 0) {
+          await this.pool.query('ALTER TABLE `solar_users` ADD COLUMN `must_change_password` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_field_worker`');
+        }
+      } catch {}
 
       // Check and migrate columns on solar_customers if table already existed with older schema
       try {
@@ -889,8 +904,8 @@ class MySqlDatabaseManager {
       }
 
       await this.ensureHashedPasswords();
-      await this.seedDefaultDemoUsersIfEmpty();
       await authService.initAuthSchema(this.pool);
+      await syncDefaultAuthAccounts(this.pool);
       await accountingService.ensureAccountingSchema(this.pool);
       await this.ensureRelationalForeignKeys();
     } catch (err: any) {
@@ -1037,11 +1052,7 @@ class MySqlDatabaseManager {
   public getStatus() {
     return {
       connected: this.isConnected,
-      host: this.config.host || '127.0.0.1',
-      database: this.config.database,
-      port: this.config.port,
-      user: this.config.user,
-      mode: this.isConnected ? 'LIVE_MYSQL_POOL' : 'IN_MEMORY_FALLBACK',
+      mode: this.isConnected ? 'LIVE_MYSQL_POOL' : 'DISCONNECTED',
       dumpAvailable: fs.existsSync(path.join(process.cwd(), 'database.sql')),
       dumpPath: '/database.sql'
     };
@@ -9688,17 +9699,11 @@ class MySqlDatabaseManager {
   // CRUD: USERS
   // ==========================================================
   public async getUsers(): Promise<any[]> {
-    if (!this.isConnected) {
-      return (this.getFallbackItems('users') || []).map(u => {
-        const { password, ...rest } = u;
-        return rest;
-      });
-    }
     this.assertDbConnected();
     const [rows] = await this.pool!.query(
-      'SELECT id, name, email, role, phone, department, designation, employee_id, is_field_worker, status, created_at, updated_at FROM `solar_users` ORDER BY `created_at` ASC'
+      'SELECT id, name, email, role, phone, department, designation, employee_id, is_field_worker, must_change_password, status, created_at, updated_at FROM `solar_users` ORDER BY `created_at` ASC'
     );
-    const mapped = (rows as any[]).map(r => ({
+    return (rows as any[]).map(r => ({
       id: r.id,
       name: r.name,
       email: r.email,
@@ -9708,12 +9713,11 @@ class MySqlDatabaseManager {
       designation: r.designation || '',
       employeeId: r.employee_id || '',
       isFieldWorker: Boolean(r.is_field_worker),
+      mustChangePassword: Boolean(r.must_change_password),
       status: r.status || 'ACTIVE',
       createdAt: r.created_at,
       updatedAt: r.updated_at
     }));
-    this.setFallbackItems('users', mapped);
-    return mapped;
   }
 
   public async saveUser(item: any, options?: { updateOnly?: boolean }): Promise<any> {
@@ -9753,18 +9757,14 @@ class MySqlDatabaseManager {
             }
           }
         }
-      } else {
-        const [rows]: any = await this.pool.query(
-          'SELECT * FROM `solar_users` WHERE `id` = ? OR (LOWER(`email`) = ? AND `email` != "") LIMIT 1',
-          [item.id, cleanEmail]
-        );
-        if (Array.isArray(rows) && rows.length > 0) existing = rows[0];
-      }
     } else {
-      existing = (this.getFallbackItems('users') || []).find(
-        (u: any) => u.id === item.id || (!isUpdateOnly && u.email && cleanEmail && u.email.toLowerCase() === cleanEmail)
+      const [rows]: any = await this.pool!.query(
+        'SELECT * FROM `solar_users` WHERE `id` = ? OR (LOWER(`email`) = ? AND `email` != "") LIMIT 1',
+        [item.id, cleanEmail]
       );
+      if (Array.isArray(rows) && rows.length > 0) existing = rows[0];
     }
+  }
 
     if (isUpdateOnly && !existing && !existingEmployee) {
       const notFoundErr: any = new Error(`User record "${item.id}" not found in MySQL.`);
@@ -9818,7 +9818,7 @@ class MySqlDatabaseManager {
           SET \`name\` = ?, \`email\` = ?, \`role\` = ?, \`phone\` = ?,
               \`department\` = ?, \`designation\` = ?, \`employee_id\` = ?,
               \`is_field_worker\` = ?, \`status\` = ?, \`updated_at\` = CURRENT_TIMESTAMP
-              ${hasNewPassword ? ', `password` = ?' : ''}
+              ${hasNewPassword ? ', `password` = ?, `must_change_password` = 0' : ''}
           WHERE \`id\` = ?
         `, [
           name, email, role, phone,
@@ -9831,8 +9831,8 @@ class MySqlDatabaseManager {
         await this.pool.query(`
           INSERT INTO \`solar_users\` (
             \`id\`, \`name\`, \`email\`, \`password\`, \`role\`, \`phone\`,
-            \`department\`, \`designation\`, \`employee_id\`, \`is_field_worker\`, \`status\`
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            \`department\`, \`designation\`, \`employee_id\`, \`is_field_worker\`, \`must_change_password\`, \`status\`
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
         `, [
           canonicalId, name, email, password, role, phone,
           department, designation, employeeId, isFieldWorker, status
@@ -9860,6 +9860,7 @@ class MySqlDatabaseManager {
           role,
           accountType: role === 'Customer' ? 'CUSTOMER' : (role === 'Admin' || role === 'Super Admin') ? 'ADMIN' : 'EMPLOYEE',
           linkedEntityId: existingEmployee?.id || canonicalId,
+          mustChangePassword: false,
           status: credStatus
         }).catch(() => {});
       }
@@ -9923,7 +9924,7 @@ class MySqlDatabaseManager {
       }
     }
 
-    const sanitizedUser = {
+    return {
       id: canonicalId,
       name,
       email,
@@ -9935,13 +9936,6 @@ class MySqlDatabaseManager {
       isFieldWorker: Boolean(isFieldWorker),
       status
     };
-
-    const items = this.getFallbackItems('users');
-    const idx = items.findIndex(u => u.id === canonicalId);
-    if (idx >= 0) items[idx] = { ...items[idx], ...sanitizedUser };
-    else items.push(sanitizedUser);
-    this.setFallbackItems('users', items);
-    return sanitizedUser;
   }
 
   public async deleteUser(id: string): Promise<boolean> {
@@ -9956,63 +9950,57 @@ class MySqlDatabaseManager {
     const cleanId = id.trim();
     const hashed = await bcrypt.hash(cleanPass, 10);
     this.assertDbConnected();
-    if (this.pool) {
-      let resolvedEmail: string | null = null;
-      let resolvedAuthUid: string | null = null;
-      try {
-        const [empRows]: any = await this.pool.query(
-          'SELECT `id`, `auth_uid`, `email`, `employee_code` FROM `solar_employee` WHERE `id` = ? OR `auth_uid` = ? OR LOWER(`email`) = ? LIMIT 1',
-          [cleanId, cleanId, cleanId.toLowerCase()]
-        );
-        if (Array.isArray(empRows) && empRows.length > 0) {
-          resolvedEmail = empRows[0].email ? String(empRows[0].email).trim().toLowerCase() : null;
-          resolvedAuthUid = empRows[0].auth_uid ? String(empRows[0].auth_uid).trim() : null;
-        }
-      } catch {}
-
-      await this.pool.query(
-        'UPDATE `solar_users` SET `password` = ?, `updated_at` = CURRENT_TIMESTAMP WHERE `id` = ? OR `id` = ? OR LOWER(`email`) = ? OR LOWER(`email`) = ?',
-        [hashed, cleanId, resolvedAuthUid || cleanId, cleanId.toLowerCase(), resolvedEmail || cleanId.toLowerCase()]
+    let resolvedEmail: string | null = null;
+    let resolvedAuthUid: string | null = null;
+    try {
+      const [empRows]: any = await this.pool!.query(
+        'SELECT `id`, `auth_uid`, `email`, `employee_code` FROM `solar_employee` WHERE `id` = ? OR `auth_uid` = ? OR LOWER(`email`) = ? LIMIT 1',
+        [cleanId, cleanId, cleanId.toLowerCase()]
       );
-      await authService.updatePassword(this.pool, cleanId, cleanPass);
-      if (resolvedEmail && resolvedEmail !== cleanId.toLowerCase()) {
-        await authService.updatePassword(this.pool, resolvedEmail, cleanPass);
+      if (Array.isArray(empRows) && empRows.length > 0) {
+        resolvedEmail = empRows[0].email ? String(empRows[0].email).trim().toLowerCase() : null;
+        resolvedAuthUid = empRows[0].auth_uid ? String(empRows[0].auth_uid).trim() : null;
       }
-      return true;
+    } catch {}
+
+    await this.pool!.query(
+      'UPDATE `solar_users` SET `password` = ?, `must_change_password` = 0, `updated_at` = CURRENT_TIMESTAMP WHERE `id` = ? OR `id` = ? OR LOWER(`email`) = ? OR LOWER(`email`) = ?',
+      [hashed, cleanId, resolvedAuthUid || cleanId, cleanId.toLowerCase(), resolvedEmail || cleanId.toLowerCase()]
+    );
+    await authService.updatePassword(this.pool!, cleanId, cleanPass);
+    if (resolvedEmail && resolvedEmail !== cleanId.toLowerCase()) {
+      await authService.updatePassword(this.pool!, resolvedEmail, cleanPass);
     }
-    const items = this.getFallbackItems('users');
-    const user = items.find(u => u.id === cleanId || (u.email && u.email.toLowerCase() === cleanId.toLowerCase()));
-    if (user) {
-      user.password = hashed;
-      this.setFallbackItems('users', items);
-      return true;
-    }
-    return false;
+    return true;
   }
 
-  public async changeUserPassword(userId: string, oldPass: string, newPass: string): Promise<{ success: boolean; message: string }> {
-    if (!newPass || typeof newPass !== 'string' || newPass.trim().length < 6) {
-      throw new Error('New password must be at least 6 characters long.');
+  public async changeUserPassword(userId: string, oldPass: string, newPass: string): Promise<{ success: boolean; message: string; mustChangePassword: boolean }> {
+    const cleanOld = String(oldPass || '').trim();
+    const cleanNew = String(newPass || '').trim();
+    if (!cleanNew || cleanNew.length < 8) {
+      throw new Error('New password must be at least 8 characters long.');
+    }
+    if (cleanOld === cleanNew) {
+      throw new Error('New password must be different from your current password.');
     }
     this.assertDbConnected();
+
     let currentHash: string | null = null;
-    if (this.pool) {
-      const [rows]: any = await this.pool.query('SELECT id, password FROM `solar_users` WHERE `id` = ? LIMIT 1', [userId]);
-      if (Array.isArray(rows) && rows.length > 0) {
-        currentHash = rows[0].password;
-      }
-    } else {
-      const u = this.getFallbackItems('users').find(x => x.id === userId);
-      currentHash = u?.password || null;
+    const [cRows]: any = await this.pool!.query(
+      'SELECT id, password_hash FROM `solar_auth_credentials` WHERE `user_id` = ? OR LOWER(`email`) = ? LIMIT 1',
+      [userId, userId.toLowerCase()]
+    );
+    if (Array.isArray(cRows) && cRows.length > 0) {
+      currentHash = cRows[0].password_hash;
     }
 
     if (!currentHash) {
-      // Check solar_auth_credentials
-      if (this.pool) {
-        const [cRows]: any = await this.pool.query('SELECT id, password_hash FROM `solar_auth_credentials` WHERE `user_id` = ? LIMIT 1', [userId]);
-        if (Array.isArray(cRows) && cRows.length > 0) {
-          currentHash = cRows[0].password_hash;
-        }
+      const [rows]: any = await this.pool!.query(
+        'SELECT id, password FROM `solar_users` WHERE `id` = ? OR LOWER(`email`) = ? LIMIT 1',
+        [userId, userId.toLowerCase()]
+      );
+      if (Array.isArray(rows) && rows.length > 0) {
+        currentHash = rows[0].password;
       }
     }
 
@@ -10020,21 +10008,16 @@ class MySqlDatabaseManager {
       throw new Error('User account not found.');
     }
 
-    let isOldValid = false;
-    if (currentHash.startsWith('$2a$') || currentHash.startsWith('$2b$') || currentHash.startsWith('$2y$')) {
-      isOldValid = await bcrypt.compare(oldPass.trim(), currentHash);
-    } else {
-      isOldValid = oldPass.trim() === currentHash;
-    }
+    const isOldValid =
+      (currentHash.startsWith('$2a$') || currentHash.startsWith('$2b$') || currentHash.startsWith('$2y$')) &&
+      (await bcrypt.compare(cleanOld, currentHash));
 
     if (!isOldValid) {
       throw new Error('Current password does not match.');
     }
 
-    const newHashed = await bcrypt.hash(newPass.trim(), 10);
-    await this.pool!.query('UPDATE `solar_users` SET `password` = ?, `updated_at` = CURRENT_TIMESTAMP WHERE `id` = ?', [newHashed, userId]);
-    await authService.updatePassword(this.pool!, userId, newPass.trim());
-    return { success: true, message: 'Password changed successfully.' };
+    await authService.updatePassword(this.pool!, userId, cleanNew);
+    return { success: true, message: 'Password changed successfully.', mustChangePassword: false };
   }
 
   public async resetUserPassword(email: string, newPass: string): Promise<{ success: boolean; message: string }> {
@@ -10046,7 +10029,7 @@ class MySqlDatabaseManager {
     const hashed = await bcrypt.hash(cleanPass, 10);
     this.assertDbConnected();
     await this.pool!.query(
-      'UPDATE `solar_users` SET `password` = ?, `updated_at` = CURRENT_TIMESTAMP WHERE LOWER(`email`) = ?',
+      'UPDATE `solar_users` SET `password` = ?, `must_change_password` = 0, `updated_at` = CURRENT_TIMESTAMP WHERE LOWER(`email`) = ?',
       [hashed, cleanEmail]
     );
     await this.pool!.query(
@@ -10355,45 +10338,7 @@ class MySqlDatabaseManager {
 
   public async seedDefaultDemoUsersIfEmpty(): Promise<void> {
     if (!this.pool || !this.isConnected) return;
-    try {
-      const [countRows]: any = await this.pool.query('SELECT COUNT(*) AS cnt FROM `solar_users`');
-      const userCount = Number(countRows?.[0]?.cnt || 0);
-      if (userCount > 0) return;
-
-      // Seed ONLY the 11 defined demo login accounts (zero dummy employees or customers)
-      const demoAccounts = [
-        { id: 'usr-admin-1', code: 'EMP-001', name: 'Administrator', email: 'admin@solar.klyiatechnology.com', pass: 'SolarAdmin@2026', role: 'Admin', dept: 'Administration', desig: 'System Administrator', fw: 0 },
-        { id: 'usr-salesmgr-1', code: 'EMP-002', name: 'Sales Manager', email: 'salesmanager@solar.klyiatechnology.com', pass: 'SolarSales@2026', role: 'Sales Manager', dept: 'Sales', desig: 'Sales Manager', fw: 0 },
-        { id: 'usr-pm-1', code: 'EMP-003', name: 'Project Manager', email: 'projectmanager@solar.klyiatechnology.com', pass: 'SolarProject@2026', role: 'Project Manager', dept: 'Operations', desig: 'Project Manager', fw: 0 },
-        { id: 'usr-survey-1', code: 'EMP-004', name: 'Site Surveyor', email: 'surveyor@solar.klyiatechnology.com', pass: 'SolarSurvey@2026', role: 'Site Survey Engineer', dept: 'Engineering', desig: 'Site Surveyor', fw: 1 },
-        { id: 'usr-insp-1', code: 'EMP-005', name: 'Site Inspector', email: 'inspector@solar.klyiatechnology.com', pass: 'SolarInspect@2026', role: 'Site Inspector', dept: 'Engineering', desig: 'Site Inspector', fw: 1 },
-        { id: 'usr-civil-1', code: 'EMP-006', name: 'Civil Team', email: 'civil@solar.klyiatechnology.com', pass: 'SolarCivil@2026', role: 'Civil Team', dept: 'Civil', desig: 'Civil Team Lead', fw: 1 },
-        { id: 'usr-elec-1', code: 'EMP-007', name: 'Electrical Team', email: 'electrical@solar.klyiatechnology.com', pass: 'SolarElec@2026', role: 'Electrical Team', dept: 'Electrical', desig: 'Electrical Team Lead', fw: 1 },
-        { id: 'usr-inst-1', code: 'EMP-008', name: 'Installation Team', email: 'installation@solar.klyiatechnology.com', pass: 'SolarInstall@2026', role: 'Installation Team', dept: 'Installation', desig: 'Installation Team Lead', fw: 1 },
-        { id: 'usr-hr-1', code: 'EMP-009', name: 'HR Manager', email: 'hr@solar.klyiatechnology.com', pass: 'SolarHr@2026', role: 'HR Manager', dept: 'HR', desig: 'HR Manager', fw: 0 },
-        { id: 'usr-acc-1', code: 'EMP-010', name: 'Accounts Manager', email: 'accounts@solar.klyiatechnology.com', pass: 'SolarAccounts@2026', role: 'Accountant', dept: 'Finance', desig: 'Accounts Manager', fw: 0 }
-      ];
-
-      for (const s of demoAccounts) {
-        const hashed = await bcrypt.hash(s.pass, 10);
-        await this.pool.query(
-          `INSERT IGNORE INTO \`solar_users\` (\`id\`, \`name\`, \`email\`, \`password\`, \`role\`, \`phone\`, \`department\`, \`designation\`, \`employee_id\`, \`is_field_worker\`, \`status\`)
-           VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, ?, 'ACTIVE')`,
-          [s.id, s.name, s.email, hashed, s.role, s.dept, s.desig, s.code, s.fw]
-        );
-      }
-
-      const custPassHash = await bcrypt.hash('SolarCustomer@2026', 10);
-      await this.pool.query(
-        `INSERT IGNORE INTO \`solar_users\` (\`id\`, \`name\`, \`email\`, \`password\`, \`role\`, \`phone\`, \`department\`, \`designation\`, \`customer_id\`, \`is_field_worker\`, \`status\`)
-         VALUES ('usr-cust-demo-1', 'Customer Demo Account', 'customer@solar.klyiatechnology.com', ?, 'Customer', '', 'Customer', 'Customer Portal Demo', NULL, 0, 'ACTIVE')`,
-        [custPassHash]
-      );
-
-      console.log('[MySQL] Seeded ONLY the 11 defined Solar Urja ERP demo login accounts (zero dummy business data).');
-    } catch (e: any) {
-      console.warn('[MySQL] Demo user auto-seed notice:', e?.message || e);
-    }
+    await syncDefaultAuthAccounts(this.pool);
   }
 
   public async getAdminRegistrationStatus(): Promise<{ allowPublicRegistration: boolean; adminCount: number }> {
@@ -10560,171 +10505,8 @@ class MySqlDatabaseManager {
 
     this.assertDbConnected();
 
-    // 1. Authoritative check via centralized solar_auth_credentials
-    if (this.pool) {
-      try {
-        const authResult = await authService.authenticate(this.pool, cleanEmail, cleanPass);
-        if (authResult && authResult.user) {
-          return authResult.user;
-        }
-      } catch (authErr: any) {
-        if (String(authErr?.message || '').toLowerCase().includes('disabled')) throw authErr;
-        console.warn('[DB Manager] Centralized auth check notice:', authErr?.message || authErr);
-      }
-    }
-
-    const [users]: any = await this.pool!.query('SELECT * FROM `solar_users` WHERE LOWER(email) = ?', [cleanEmail]);
-    if (Array.isArray(users) && users.length > 0) {
-      const u = users[0];
-      let isMatch = false;
-      let effectiveHash = String(u.password || '');
-
-      if (effectiveHash && (effectiveHash.startsWith('$2a$') || effectiveHash.startsWith('$2b$') || effectiveHash.startsWith('$2y$'))) {
-        isMatch = await bcrypt.compare(cleanPass, effectiveHash);
-      } else if (effectiveHash && effectiveHash === cleanPass) {
-        isMatch = true;
-        // Automatically upgrade legacy plaintext to bcrypt in MySQL
-        try {
-          effectiveHash = await bcrypt.hash(cleanPass, 10);
-          await this.pool!.query('UPDATE `solar_users` SET `password` = ? WHERE `id` = ?', [effectiveHash, u.id]);
-        } catch {}
-      }
-
-      if (isMatch) {
-        const uStatus = String(u.status || 'ACTIVE').trim().toUpperCase();
-        if (['DISABLED', 'INACTIVE', 'TERMINATED', 'SUSPENDED'].includes(uStatus)) {
-          throw new Error('This account has been disabled. Please contact system administrator.');
-        }
-        const uRole = u.role || 'Admin';
-        const uUpper = uRole.trim().toUpperCase();
-        const acctType = uUpper === 'CUSTOMER' ? 'CUSTOMER' : (uUpper === 'ADMIN' || uUpper === 'SUPER ADMIN' ? 'ADMIN' : 'EMPLOYEE');
-        await authService.setCredential(this.pool!, {
-          userId: u.id,
-          email: u.email,
-          password: effectiveHash,
-          role: uRole,
-          accountType: acctType,
-          linkedEntityId: u.employee_id || u.id,
-          status: 'ACTIVE'
-        }).catch(() => {});
-
-        return {
-          id: u.id,
-          userId: u.id,
-          name: u.name,
-          email: u.email,
-          role: uRole,
-          phone: u.phone,
-          department: u.department,
-          designation: u.designation,
-          employeeId: u.employee_id || u.id,
-          isFieldWorker: Boolean(u.is_field_worker),
-          accountType: acctType,
-          status: u.status || 'ACTIVE'
-        };
-      }
-    }
-
-    // Check solar_employee fallback if employee row carries a password
-    try {
-      const [employees]: any = await this.pool!.query('SELECT * FROM `solar_employee` WHERE LOWER(email) = ? LIMIT 1', [cleanEmail]);
-      if (Array.isArray(employees) && employees.length > 0) {
-        const emp = employees[0];
-        const ePass = String(emp.password || '');
-        let eMatch = false;
-        if (ePass && (ePass.startsWith('$2a$') || ePass.startsWith('$2b$') || ePass.startsWith('$2y$'))) {
-          eMatch = await bcrypt.compare(cleanPass, ePass);
-        } else if (ePass && ePass === cleanPass) {
-          eMatch = true;
-        }
-        if (eMatch) {
-          const eDisabled = emp.login_enabled === 0 || emp.login_enabled === false
-            || ['DISABLED', 'INACTIVE', 'TERMINATED'].includes(String(emp.status || 'ACTIVE').toUpperCase())
-            || String(emp.account_status || 'ACTIVE').toUpperCase() === 'DISABLED';
-          if (eDisabled) {
-            throw new Error('This account has been disabled. Please contact system administrator.');
-          }
-          const eRole = emp.system_role || emp.assigned_role || 'Technician';
-          const acctType = ['ADMIN', 'SUPER ADMIN'].includes(eRole.trim().toUpperCase()) ? 'ADMIN' : 'EMPLOYEE';
-          await authService.setCredential(this.pool!, {
-            userId: emp.auth_uid || emp.id,
-            email: emp.email,
-            password: cleanPass,
-            role: eRole,
-            accountType: acctType,
-            linkedEntityId: emp.id,
-            status: 'ACTIVE'
-          }).catch(() => {});
-          return {
-            id: emp.id,
-            userId: emp.auth_uid || emp.id,
-            employeeId: emp.employee_code || emp.id,
-            name: emp.name,
-            email: emp.email,
-            role: eRole,
-            phone: emp.phone || '',
-            department: emp.department || 'Operations',
-            designation: emp.designation || eRole,
-            isFieldWorker: Boolean(emp.is_field_worker),
-            accountType: acctType,
-            status: emp.status || 'ACTIVE'
-          };
-        }
-      }
-    } catch (empErr: any) {
-      if (String(empErr?.message || '').toLowerCase().includes('disabled')) throw empErr;
-    }
-
-    const [customers]: any = await this.pool!.query('SELECT * FROM `solar_customers` WHERE LOWER(email) = ?', [cleanEmail]);
-    if (Array.isArray(customers) && customers.length > 0) {
-      const c = customers[0];
-      let isMatch = false;
-      let effectiveHash = String(c.password || '');
-
-      if (effectiveHash && (effectiveHash.startsWith('$2a$') || effectiveHash.startsWith('$2b$') || effectiveHash.startsWith('$2y$'))) {
-        isMatch = await bcrypt.compare(cleanPass, effectiveHash);
-      } else if (effectiveHash && effectiveHash === cleanPass) {
-        isMatch = true;
-        try {
-          effectiveHash = await bcrypt.hash(cleanPass, 10);
-          await this.pool!.query('UPDATE `solar_customers` SET `password` = ? WHERE `id` = ?', [effectiveHash, c.id]);
-        } catch {}
-      }
-
-      if (isMatch) {
-        const cStatus = String(c.status || 'ACTIVE').trim().toUpperCase();
-        if (['DISABLED', 'INACTIVE'].includes(cStatus)) {
-          throw new Error('This account has been disabled. Please contact system administrator.');
-        }
-        const rawCid = String(c.id).replace(/^usr-/, '');
-        await authService.setCredential(this.pool!, {
-          userId: `usr-${rawCid}`,
-          email: c.email,
-          password: effectiveHash,
-          role: 'Customer',
-          accountType: 'CUSTOMER',
-          linkedEntityId: c.id,
-          status: 'ACTIVE'
-        }).catch(() => {});
-        return {
-          id: `usr-${rawCid}`,
-          userId: `usr-${rawCid}`,
-          customerId: c.id,
-          employeeId: `CUST-${c.id}`,
-          name: c.name,
-          email: c.email,
-          role: 'Customer',
-          phone: c.phone,
-          department: 'Customer Portal',
-          designation: 'Customer',
-          isFieldWorker: false,
-          accountType: 'CUSTOMER',
-          status: c.status || 'ACTIVE'
-        };
-      }
-    }
-
-    return null;
+    const authResult = await authService.authenticate(this.pool!, cleanEmail, cleanPass);
+    return authResult ? authResult.user : null;
   }
 
   public async findUserByIdOrEmail(idOrEmail: string): Promise<any | null> {
@@ -11501,7 +11283,7 @@ class MySqlDatabaseManager {
       createdAt: new Date().toISOString()
     };
     if (!this.isConnected || !this.pool) {
-      return inMemoryDbStore.recordAuditLog(entry);
+      return entry;
     }
     try {
       await this.pool.query(
@@ -11531,9 +11313,7 @@ class MySqlDatabaseManager {
   }
 
   public async getAuditLogs(filters?: { module?: string; action?: string; actorId?: string; limit?: number }): Promise<any[]> {
-    if (!this.isConnected || !this.pool) {
-      return inMemoryDbStore.getAuditLogs(filters);
-    }
+    this.assertDbConnected();
     const conds: string[] = [];
     const params: any[] = [];
     if (filters?.module) {
@@ -11550,7 +11330,7 @@ class MySqlDatabaseManager {
     }
     const max = Math.min(Math.max(Number(filters?.limit) || 200, 1), 1000);
     const whereClause = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
-    const [rows]: any = await this.pool.query(
+    const [rows]: any = await this.pool!.query(
       `SELECT * FROM \`solar_audit_logs\` ${whereClause} ORDER BY \`created_at\` DESC LIMIT ?`,
       [...params, max]
     );
@@ -11579,32 +11359,4 @@ class MySqlDatabaseManager {
   }
 }
 
-const realDbManager = new MySqlDatabaseManager();
-
-const DB_LIFECYCLE_METHODS = new Set([
-  'init',
-  'getStatus',
-  'getPool',
-  'isDbConnected',
-  'testConnection',
-  'runFullMigration'
-]);
-
-export const dbManager: MySqlDatabaseManager = new Proxy(realDbManager, {
-  get(target, prop, receiver) {
-    if (
-      typeof prop === 'string' &&
-      !DB_LIFECYCLE_METHODS.has(prop) &&
-      !target.isDbConnected() &&
-      prop in inMemoryDbStore
-    ) {
-      const fallbackVal = (inMemoryDbStore as any)[prop];
-      if (typeof fallbackVal === 'function') {
-        return fallbackVal.bind(inMemoryDbStore);
-      }
-      return fallbackVal;
-    }
-    const val = Reflect.get(target, prop, receiver);
-    return typeof val === 'function' ? val.bind(target) : val;
-  }
-});
+export const dbManager: MySqlDatabaseManager = new MySqlDatabaseManager();

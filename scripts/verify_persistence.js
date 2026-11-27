@@ -295,10 +295,11 @@ async function runTest() {
 
   console.log('\nStep 2: Directly inspecting live MySQL InnoDB database tables...');
   const conn = await mysql.createConnection({
-    host: '127.0.0.1',
-    user: 'u238683373_rejoy_solar',
-    password: ';Fl:$tn/9C&d',
-    database: 'u238683373_rejoy_solar'
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER || '',
+    password: process.env.DB_PASS ?? process.env.DB_PASSWORD ?? '',
+    database: process.env.DB_NAME || ''
   });
 
   const tableMap = {
@@ -400,10 +401,11 @@ async function runTest() {
 
   // Query solar_system_settings directly
   const conn2 = await mysql.createConnection({
-    host: '127.0.0.1',
-    user: 'u238683373_rejoy_solar',
-    password: ';Fl:$tn/9C&d',
-    database: 'u238683373_rejoy_solar'
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER || '',
+    password: process.env.DB_PASS ?? process.env.DB_PASSWORD ?? '',
+    database: process.env.DB_NAME || ''
   });
   const [settingsRows] = await conn2.query('SELECT `setting_value` FROM `solar_system_settings` WHERE `setting_key` = ?', ['global_settings']);
   const parsedSettings = JSON.parse(settingsRows[0].setting_value);

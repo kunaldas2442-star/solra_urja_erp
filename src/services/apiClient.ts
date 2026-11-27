@@ -6,14 +6,15 @@
 export interface DbStatusResponse {
   success: boolean;
   connected: boolean;
-  host: string;
-  database: string;
-  port: number;
+  host?: string;
+  database?: string;
+  port?: number;
   mode: string;
   dumpAvailable: boolean;
   dumpPath: string;
   message: string;
   tables?: string[];
+  tablesCount?: number;
 }
 
 export interface BatchImportResult {
@@ -94,9 +95,6 @@ class ApiClient {
       return {
         success: false,
         connected: false,
-        host: '127.0.0.1',
-        database: 'solar_urja_erp',
-        port: 3306,
         mode: 'DISCONNECTED',
         dumpAvailable: false,
         dumpPath: '/database.sql',
@@ -1459,7 +1457,7 @@ class ApiClient {
     }
   }
 
-  async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+  async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<{ success: boolean; message: string; mustChangePassword?: boolean }> {
     try {
       const res = await this.request(`${this.baseUrl}/auth/change-password`, {
         method: 'POST',

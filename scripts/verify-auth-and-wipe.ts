@@ -12,9 +12,9 @@ async function runAuthAndWipeTests() {
   const config = {
     host: process.env.DB_HOST || '127.0.0.1',
     port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || 'u238683373_rejoy_solar',
-    password: process.env.DB_PASS || ';Fl:$tn/9C&d',
-    database: process.env.DB_NAME || 'u238683373_rejoy_solar',
+    user: process.env.DB_USER || '',
+    password: process.env.DB_PASS ?? process.env.DB_PASSWORD ?? '',
+    database: process.env.DB_NAME || '',
   };
 
   const connection = await mysql.createConnection(config);

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import mysql from 'mysql2/promise';
 import { AuthService } from '../server/services/authService';
 
@@ -9,11 +10,11 @@ async function run() {
   console.log('================================================================\n');
 
   const pool = mysql.createPool({
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'u238683373_rejoy_solar',
-    password: ';Fl:$tn/9C&d',
-    database: 'u238683373_rejoy_solar'
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER || '',
+    password: process.env.DB_PASS ?? process.env.DB_PASSWORD ?? '',
+    database: process.env.DB_NAME || ''
   });
 
   try {

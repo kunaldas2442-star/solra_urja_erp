@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { dbManager, getDbConfigFromEnv } from '../mysqlDatabase';
-import { generateToken, verifyToken } from '../services/tokenService';
 import { authService } from '../services/authService';
 import { accountingService } from '../services/accountingService';
 import {
@@ -101,17 +100,6 @@ export async function authenticateSessionMiddleware(req: Request, _res: Response
       if (val.valid && val.user) {
         (req as any).user = val.user;
         return next();
-      }
-    }
-
-    if (token) {
-      const jwtVal = verifyToken(token);
-      if (jwtVal.valid && jwtVal.payload) {
-        const u = await dbManager.findUserByIdOrEmail(jwtVal.payload.sub || jwtVal.payload.email);
-        if (u) {
-          (req as any).user = u;
-          return next();
-        }
       }
     }
   } catch (err: any) {
@@ -272,7 +260,7 @@ function sendApiError(res: Response, err: any, fallbackMessage: string, extra?: 
 // 1. DATABASE & PRODUCTION MIGRATION APIS
 // ==========================================================
 
-// DB Status & Diagnostics
+// DB Status & Diagnostics (never expose DB credentials or host/port/user/name publicly)
 apiRouter.get('/db/status', (_req: Request, res: Response) => {
   try {
     const status = dbManager.getStatus();
@@ -280,10 +268,11 @@ apiRouter.get('/db/status', (_req: Request, res: Response) => {
       success: true,
       ...status,
       message: status.connected
-        ? `Connected to MySQL database "${status.database}" on ${status.host}:${status.port}`
-        : `MySQL database connection failed or disconnected.`,
+        ? 'Connected to production MySQL database.'
+        : 'MySQL database connection failed or disconnected.',
       tables: [
-        'solar_users', 'solar_customers', 'solar_leads', 'solar_projects',
+        'solar_users', 'solar_auth_credentials', 'solar_auth_sessions',
+        'solar_customers', 'solar_leads', 'solar_projects',
         'solar_project_stages', 'solar_site_surveys', 'solar_quotations',
         'solar_payments', 'solar_expenses', 'solar_employees', 'solar_attendance',
         'solar_payslips', 'solar_holidays', 'solar_leave_requests', 'solar_leave_balances', 'solar_service_tickets', 'solar_amc_contracts',
@@ -682,21 +671,24 @@ apiRouter.post(['/auth/register', '/auth/register/'], async (req: Request, res: 
     );
 
     const pool = dbManager.getPool();
-    let sessionToken = '';
-    if (pool) {
-      sessionToken = await authService.createSession(pool, {
-        userId: user.id,
-        email: user.email,
-        role: user.role || 'Admin',
-        accountType: 'ADMIN',
-        linkedEntityId: user.id,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent']
+    if (!pool) {
+      res.status(503).json({
+        success: false,
+        code: 'DB_UNAVAILABLE',
+        message: 'Production MySQL database is unavailable. Cannot issue session.'
       });
-      authService.setSessionCookie(res, req, sessionToken);
-    } else {
-      sessionToken = generateToken(user);
+      return;
     }
+    const sessionToken = await authService.createSession(pool, {
+      userId: user.id,
+      email: user.email,
+      role: user.role || 'Admin',
+      accountType: 'ADMIN',
+      linkedEntityId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    authService.setSessionCookie(res, req, sessionToken);
 
     recordAuditFromReq(req, {
       actor: user,
@@ -738,75 +730,37 @@ apiRouter.post(['/auth/login', '/auth/login/'], async (req: Request, res: Respon
     const cleanPass = String(password).trim();
     const pool = dbManager.getPool();
 
-    let authResult: { user: any; sessionToken: string } | null = null;
-
-    if (pool) {
-      try {
-        authResult = await authService.authenticate(pool, cleanEmail, cleanPass, {
-          ip: req.ip,
-          userAgent: req.headers['user-agent']
-        });
-      } catch (authErr: any) {
-        if (String(authErr?.message || '').toLowerCase().includes('disabled')) {
-          recordAuditFromReq(req, {
-            module: 'AUTH',
-            action: 'LOGIN',
-            entityType: 'user',
-            summary: `Blocked disabled account login for ${cleanEmail}`,
-            status: 'DISABLED'
-          });
-          res.status(403).json({ success: false, message: authErr.message });
-          return;
-        }
-        console.warn('[Login] Centralized auth check notice:', authErr?.message || authErr);
-      }
+    if (!pool || !dbManager.isDbConnected()) {
+      res.status(503).json({
+        success: false,
+        code: 'DB_UNAVAILABLE',
+        message: 'Production MySQL database is unavailable. Authentication requires a live MySQL connection.'
+      });
+      return;
     }
 
-    // Fallback authentication via dbManager if needed
-    if (!authResult) {
-      let legacyUser: any = null;
-      try {
-        legacyUser = await dbManager.authenticateUser(cleanEmail, cleanPass);
-      } catch (legacyErr: any) {
-        if (String(legacyErr?.message || '').toLowerCase().includes('disabled')) {
-          recordAuditFromReq(req, {
-            module: 'AUTH',
-            action: 'LOGIN',
-            entityType: 'user',
-            summary: `Blocked disabled account login for ${cleanEmail}`,
-            status: 'DISABLED'
-          });
-          res.status(403).json({ success: false, message: legacyErr.message });
-          return;
-        }
-        throw legacyErr;
+    let authResult: { user: any; sessionToken: string } | null = null;
+    try {
+      authResult = await authService.authenticate(pool, cleanEmail, cleanPass, {
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+    } catch (authErr: any) {
+      if (String(authErr?.message || '').toLowerCase().includes('disabled')) {
+        recordAuditFromReq(req, {
+          module: 'AUTH',
+          action: 'LOGIN',
+          entityType: 'user',
+          summary: `Blocked disabled account login for ${cleanEmail}`,
+          status: 'DISABLED'
+        });
+        res.status(403).json({ success: false, message: authErr.message });
+        return;
       }
-      if (legacyUser) {
-        const upperRole = String(legacyUser.role || '').trim().toUpperCase();
-        const derivedAccountType =
-          upperRole === 'CUSTOMER'
-            ? 'CUSTOMER'
-            : (upperRole === 'ADMIN' || upperRole === 'SUPER ADMIN' ? 'ADMIN' : 'EMPLOYEE');
-        let sessToken = '';
-        if (pool) {
-          sessToken = await authService.createSession(pool, {
-            userId: legacyUser.id,
-            email: legacyUser.email,
-            role: legacyUser.role || 'Admin',
-            accountType: derivedAccountType,
-            linkedEntityId: legacyUser.customerId || legacyUser.employeeId || legacyUser.id,
-            ipAddress: req.ip,
-            userAgent: req.headers['user-agent']
-          });
-        } else {
-          sessToken = generateToken(legacyUser);
-        }
-        authResult = { user: legacyUser, sessionToken: sessToken };
-      }
+      throw authErr;
     }
 
     if (authResult) {
-      // Set secure HttpOnly cookie on client response
       authService.setSessionCookie(res, req, authResult.sessionToken);
       recordAuditFromReq(req, {
         actor: authResult.user,
@@ -818,7 +772,6 @@ apiRouter.post(['/auth/login', '/auth/login/'], async (req: Request, res: Respon
         status: 'SUCCESS'
       });
 
-      // Return authenticated sanitized user (without sensitive credentials)
       res.json({
         success: true,
         user: authResult.user,
@@ -859,43 +812,28 @@ apiRouter.get(['/auth/me', '/auth/me/', '/auth/verify', '/auth/verify/'], async 
     }
 
     const pool = dbManager.getPool();
-
-    // 1. Authoritative check via solar_auth_sessions table in MySQL
-    if (pool) {
-      const sessVerification = await authService.validateSession(pool, token);
-      if (sessVerification.valid && sessVerification.user) {
-        // Touch cookie freshness and preserve session cookie in browser
-        authService.setSessionCookie(res, req, token);
-        res.json({
-          success: true,
-          user: sessVerification.user,
-          token
-        });
-        return;
-      }
-    }
-
-    // 2. Fallback verification via HMAC token
-    const verification = verifyToken(token);
-    if (!verification.valid || !verification.payload) {
-      res.status(401).json({ success: false, message: verification.error || 'Session expired or invalid.' });
+    if (!pool || !dbManager.isDbConnected()) {
+      res.status(503).json({
+        success: false,
+        code: 'DB_UNAVAILABLE',
+        message: 'Production MySQL database is unavailable. Cannot validate session.'
+      });
       return;
     }
 
-    const user = await dbManager.findUserByIdOrEmail(verification.payload.sub || verification.payload.email);
-    if (!user) {
-      res.status(401).json({ success: false, message: 'User account not found or has been removed from database.' });
+    const sessVerification = await authService.validateSession(pool, token);
+    if (!sessVerification.valid || !sessVerification.user) {
+      res.status(401).json({
+        success: false,
+        message: sessVerification.error || 'Session expired or invalid.'
+      });
       return;
     }
 
-    if (user.status && user.status === 'DISABLED') {
-      res.status(403).json({ success: false, message: 'Account has been disabled. Please contact system administrator.' });
-      return;
-    }
-
+    authService.setSessionCookie(res, req, token);
     res.json({
       success: true,
-      user,
+      user: sessVerification.user,
       token
     });
   } catch (err: any) {

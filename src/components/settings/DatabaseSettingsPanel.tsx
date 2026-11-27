@@ -7,10 +7,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  Code,
-  ShieldAlert,
-  ArrowRight,
-  ExternalLink,
   Layers,
   HardDrive
 } from 'lucide-react';
@@ -22,18 +18,7 @@ export const DatabaseSettingsPanel: React.FC = () => {
   const [status, setStatus] = useState<DbStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
-  const [isTesting, setIsTesting] = useState<boolean>(false);
   const [migrationResult, setMigrationResult] = useState<string | null>(null);
-
-  // Custom connection testing state
-  const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
-  const [dbConfig, setDbConfig] = useState({
-    host: '127.0.0.1',
-    port: 3306,
-    user: 'solar_urja_user',
-    password: '',
-    database: 'solar_urja_erp'
-  });
 
   const loadStatus = async () => {
     setIsLoading(true);
@@ -51,30 +36,14 @@ export const DatabaseSettingsPanel: React.FC = () => {
     loadStatus();
   }, []);
 
-  const handleTestConnection = async () => {
-    setIsTesting(true);
-    try {
-      const res = await apiClient.testDbConnection(dbConfig);
-      if (res.success) {
-        showToast(res.message, 'success');
-      } else {
-        showToast(`Connection failed: ${res.message}`, 'error');
-      }
-    } catch (e: any) {
-      showToast(e.message || 'Connection test error', 'error');
-    } finally {
-      setIsTesting(false);
-    }
-  };
-
   const handleRunMigration = async () => {
-    if (!window.confirm('Push complete MySQL schema and all existing records (Customers, Projects, Leads, HRMS, Inventory, Sales & Purchase ERP) to the database?')) {
+    if (!window.confirm('Verify MySQL schema and ensure all relational tables and system records are synchronized?')) {
       return;
     }
     setIsMigrating(true);
     setMigrationResult(null);
     try {
-      const res = await apiClient.runMigration(showConfigModal ? dbConfig : undefined);
+      const res = await apiClient.runMigration();
       if (res.success) {
         setMigrationResult(res.message);
         showToast(res.message, 'success');
@@ -98,8 +67,9 @@ export const DatabaseSettingsPanel: React.FC = () => {
   };
 
   const apiEndpoints = [
-    { method: 'POST', path: '/api/auth/login', module: 'Authentication', desc: 'Secure staff & employee portal login via MySQL' },
-    { method: 'POST', path: '/api/auth/customer-login', module: 'Customer Portal', desc: 'Commercial/industrial customer login with password' },
+    { method: 'POST', path: '/api/auth/login', module: 'Authentication', desc: 'Secure portal authentication verified against MySQL bcrypt credentials' },
+    { method: 'GET', path: '/api/auth/me', module: 'Session Verification', desc: 'Authoritative HttpOnly cookie session check in solar_auth_sessions' },
+    { method: 'POST', path: '/api/auth/change-password', module: 'Password Security', desc: 'Self-service password update & default-account activation in MySQL' },
     { method: 'GET / POST', path: '/api/customers', module: 'Customer Directory', desc: 'Query all accounts, create new commercial customer' },
     { method: 'PUT', path: '/api/customers/:id/password', module: 'Customer Security', desc: 'Update portal password for customer account' },
     { method: 'GET / POST', path: '/api/leads', module: 'CRM Pipeline', desc: 'Commercial lead intake, estimations & salesperson routing' },
@@ -109,16 +79,18 @@ export const DatabaseSettingsPanel: React.FC = () => {
     { method: 'GET / POST', path: '/api/purchase-orders', module: 'Purchase ERP', desc: 'Purchase orders, GST calculation & delivery receipts' },
     { method: 'GET / POST', path: '/api/boms', module: 'Engineering BOM', desc: 'Bill of Materials allocation & system capacity sizing' },
     { method: 'GET / POST', path: '/api/sales-invoices', module: 'Sales & Invoicing', desc: 'GST invoices, e-Way bill details & warehouse address' },
-    { method: 'GET / POST', path: '/api/warehouses', module: 'Logistics Depot', desc: 'Depots in Bhilai, Ahmedabad, Jaipur & Raipur' },
+    { method: 'GET / POST', path: '/api/warehouses', module: 'Logistics Depot', desc: 'Regional warehouse inventory and dispatch control' },
     { method: 'GET', path: '/api/stock-movements', module: 'Inventory Ledger', desc: 'BOM allocation & purchase receipt tracking' },
     { method: 'GET / POST', path: '/api/employees', module: 'HRMS Operations', desc: 'Technicians, engineers, wage brackets & login toggle' },
     { method: 'GET / POST', path: '/api/attendance', module: 'Field Attendance', desc: 'GPS-verified check-in stamps & project site tags' },
     { method: 'GET / POST', path: '/api/payments', module: 'Financials', desc: 'Milestone billing receipts & Tally Prime sync status' },
     { method: 'GET / POST', path: '/api/service-tickets', module: 'O&M Service', desc: 'Preventive maintenance tickets & technician dispatch' },
-    { method: 'GET', path: '/api/db/status', module: 'System Database', desc: 'MySQL connection status, table list & health' },
-    { method: 'POST', path: '/api/db/migrate', module: 'Data Migration', desc: 'Create all 28 tables & push all data into MySQL' },
+    { method: 'GET', path: '/api/db/status', module: 'System Database', desc: 'MySQL connection pool status and health' },
+    { method: 'POST', path: '/api/db/migrate', module: 'Data Migration', desc: 'Apply idempotent MySQL schema & account verification' },
     { method: 'GET', path: '/api/db/dump.sql', module: 'Export Database', desc: 'Direct download of production MySQL SQL dump file' }
   ];
+
+  const tablesCount = status?.tablesCount ?? status?.tables?.length ?? 28;
 
   return (
     <div className="space-y-6">
@@ -131,11 +103,11 @@ export const DatabaseSettingsPanel: React.FC = () => {
               <span>Production MySQL Database & REST APIs</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              MySQL Data Migration & Server APIs
+              MySQL Schema Maintenance & Server APIs
             </h2>
             <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-              Standalone MySQL database engine without Firebase. All 28 modules, tables, customer passwords,
-              and existing data records can be pushed directly to your MySQL server or imported via phpMyAdmin.
+              Authoritative MySQL / MariaDB persistence configured exclusively via server-side environment variables.
+              No database credentials are ever stored or exposed in browser code.
             </p>
           </div>
 
@@ -150,10 +122,10 @@ export const DatabaseSettingsPanel: React.FC = () => {
             <button
               onClick={handleRunMigration}
               disabled={isMigrating}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 transition-all disabled:opacity-50 cursor-pointer"
             >
               <UploadCloud className={`w-4 h-4 ${isMigrating ? 'animate-bounce' : ''}`} />
-              <span>{isMigrating ? 'Pushing Data...' : 'Push All Data to MySQL'}</span>
+              <span>{isMigrating ? 'Synchronizing...' : 'Run Schema Sync'}</span>
             </button>
           </div>
         </div>
@@ -190,7 +162,7 @@ export const DatabaseSettingsPanel: React.FC = () => {
             <button
               onClick={loadStatus}
               disabled={isLoading}
-              className="text-slate-400 hover:text-slate-700 p-1"
+              className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
               title="Refresh status"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
@@ -214,12 +186,12 @@ export const DatabaseSettingsPanel: React.FC = () => {
               </span>
             </div>
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
-              <span className="text-slate-500 font-medium">Target Database</span>
-              <span className="font-mono font-bold text-slate-800">{status?.database || 'u238683373_rejoy_solar'}</span>
+              <span className="text-slate-500 font-medium">Pool Mode</span>
+              <span className="font-mono font-bold text-slate-800">{status?.mode || 'DISCONNECTED'}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500 font-medium">Host : Port</span>
-              <span className="font-mono font-bold text-slate-800">{status?.host || '127.0.0.1'}:{status?.port || 3306}</span>
+              <span className="text-slate-500 font-medium">Configuration Source</span>
+              <span className="font-mono font-semibold text-emerald-700">Server .env (Protected)</span>
             </div>
             {!status?.connected && status?.message && (
               <div className="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-800 font-medium">
@@ -227,13 +199,6 @@ export const DatabaseSettingsPanel: React.FC = () => {
               </div>
             )}
           </div>
-
-          <button
-            onClick={() => setShowConfigModal(!showConfigModal)}
-            className="w-full mt-2 py-2 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-colors"
-          >
-            {showConfigModal ? 'Hide Connection Tester' : 'Test Custom MySQL Credentials'}
-          </button>
         </div>
 
         {/* Database Tables & Dump Info */}
@@ -245,26 +210,26 @@ export const DatabaseSettingsPanel: React.FC = () => {
 
           <div className="space-y-3 pt-1">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
-              <span className="text-slate-500 font-medium">Total Tables</span>
-              <span className="font-bold text-slate-900">28 Relational Tables</span>
+              <span className="text-slate-500 font-medium">Active Tables</span>
+              <span className="font-bold text-slate-900">{tablesCount} Relational Tables</span>
             </div>
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
               <span className="text-slate-500 font-medium">Encoding</span>
               <span className="font-mono text-slate-800">utf8mb4_unicode_ci</span>
             </div>
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 text-xs">
-              <span className="text-slate-500 font-medium">Dump File</span>
-              <span className="font-mono text-emerald-700 font-bold">database.sql (245 KB)</span>
+              <span className="text-slate-500 font-medium">Schema File</span>
+              <span className="font-mono text-emerald-700 font-bold">database.sql</span>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500 font-medium">Pre-populated Data</span>
-              <span className="text-emerald-700 font-bold">100% All Initial Records</span>
+              <span className="text-slate-500 font-medium">Session Store</span>
+              <span className="text-emerald-700 font-bold">MySQL HttpOnly Cookies</span>
             </div>
           </div>
 
           <button
             onClick={handleDownloadDump}
-            className="w-full mt-2 py-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5"
+            className="w-full mt-2 py-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Download SQL File</span>
@@ -280,106 +245,20 @@ export const DatabaseSettingsPanel: React.FC = () => {
 
           <ol className="text-xs text-slate-600 space-y-2.5 pt-1 list-decimal list-inside">
             <li>
-              <span className="font-semibold text-slate-800">Create MySQL DB:</span> In cPanel or phpMyAdmin create <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">u238683373_rejoy_solar</code>.
+              <span className="font-semibold text-slate-800">Configure Environment:</span> Set <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME</code> in your server <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">.env</code>.
             </li>
             <li>
-              <span className="font-semibold text-slate-800">Import Dump:</span> Click <em>Import</em> in phpMyAdmin and choose <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">database.sql</code>.
+              <span className="font-semibold text-slate-800">Import Schema:</span> Import <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">database.sql</code> or run <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">npx tsx scripts/migrate-auth-accounts.ts</code>.
             </li>
             <li>
-              <span className="font-semibold text-slate-800">Set .env:</span> Set <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">DB_HOST, DB_USER, DB_PASS, DB_NAME</code> on your server.
+              <span className="font-semibold text-slate-800">Rotate Default Passwords:</span> Sign in and change all seeded account passwords before production rollout.
             </li>
             <li>
-              <span className="font-semibold text-slate-800">Deploy:</span> Run <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">npm run build</code> or upload files to Hostinger <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">public_html</code>.
+              <span className="font-semibold text-slate-800">Build & Serve:</span> Run <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">npm run build</code> and start the Node.js server.
             </li>
           </ol>
         </div>
       </div>
-
-      {/* Custom Connection Tester Modal / Panel */}
-      {showConfigModal && (
-        <div className="bg-slate-50 border border-slate-300 rounded-2xl p-5 space-y-4 animate-in fade-in">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Custom MySQL Connection Tester</h3>
-              <p className="text-xs text-slate-500">Test credentials against any external or remote MySQL database</p>
-            </div>
-            <button
-              onClick={() => setShowConfigModal(false)}
-              className="text-xs text-slate-500 hover:text-slate-800"
-            >
-              Close
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Host</label>
-              <input
-                type="text"
-                value={dbConfig.host}
-                onChange={e => setDbConfig({ ...dbConfig, host: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg p-2 bg-white font-mono"
-                placeholder="localhost or IP"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Port</label>
-              <input
-                type="number"
-                value={dbConfig.port}
-                onChange={e => setDbConfig({ ...dbConfig, port: Number(e.target.value) })}
-                className="w-full border border-slate-300 rounded-lg p-2 bg-white font-mono"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Database Name</label>
-              <input
-                type="text"
-                value={dbConfig.database}
-                onChange={e => setDbConfig({ ...dbConfig, database: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg p-2 bg-white font-mono"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Username</label>
-              <input
-                type="text"
-                value={dbConfig.user}
-                onChange={e => setDbConfig({ ...dbConfig, user: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg p-2 bg-white font-mono"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-slate-700 mb-1">Password</label>
-              <input
-                type="password"
-                value={dbConfig.password}
-                onChange={e => setDbConfig({ ...dbConfig, password: e.target.value })}
-                className="w-full border border-slate-300 rounded-lg p-2 bg-white font-mono"
-                placeholder="Database password"
-              />
-            </div>
-            <div className="flex items-end gap-2">
-              <button
-                type="button"
-                onClick={handleTestConnection}
-                disabled={isTesting}
-                className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors"
-              >
-                {isTesting ? 'Testing...' : 'Test Connection'}
-              </button>
-              <button
-                type="button"
-                onClick={handleRunMigration}
-                disabled={isMigrating}
-                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-colors"
-              >
-                {isMigrating ? 'Pushing...' : 'Push Data Now'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* REST API Endpoints Directory */}
       <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs space-y-4">

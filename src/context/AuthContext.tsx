@@ -137,6 +137,7 @@ export interface AuthContextType {
     phone?: string
   ) => Promise<void>;
   logout: () => Promise<void>;
+  completePasswordChange: (oldPassword: string, newPassword: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updateRole: (newRole: UserRole) => void;
   switchPersona: (profile: UserProfile) => void;
@@ -231,14 +232,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             department: u.department || (u.role === 'Customer' ? 'Client Portal' : 'Administration'),
             designation: u.designation || u.role,
             isFieldWorker: isFw,
-            assignedProjects: []
+            assignedProjects: [],
+            mustChangePassword: Boolean(u.mustChangePassword)
           };
 
           if (isMounted) {
             saveUserProfile(verifiedProfile, verifyRes.token || undefined);
-            await storageService.hydrateFromBackend().catch((syncErr) => {
-              console.error('[Auth] Initial MySQL bootstrap sync failed:', syncErr);
-            });
+            if (!verifiedProfile.mustChangePassword) {
+              await storageService.hydrateFromBackend().catch((syncErr) => {
+                console.error('[Auth] Initial MySQL bootstrap sync failed:', syncErr);
+              });
+            }
           }
         } else {
           if (isMounted) {
@@ -300,13 +304,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         department: u.department || (u.role === 'Customer' ? 'Client Portal' : 'Administration'),
         designation: u.designation || u.role,
         isFieldWorker: isFw,
-        assignedProjects: []
+        assignedProjects: [],
+        mustChangePassword: Boolean(u.mustChangePassword)
       };
 
       saveUserProfile(authenticatedProfile, data.token);
-      await storageService.hydrateFromBackend().catch((syncErr) => {
-        console.error('[Auth] Post-login MySQL bootstrap sync failed:', syncErr);
-      });
+      if (!authenticatedProfile.mustChangePassword) {
+        await storageService.hydrateFromBackend().catch((syncErr) => {
+          console.error('[Auth] Post-login MySQL bootstrap sync failed:', syncErr);
+        });
+      }
     } catch (err: any) {
       throw new Error(err.message || 'Authentication failed. Please verify credentials.');
     }
@@ -419,6 +426,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
+  };
+
+  const completePasswordChange = async (oldPassword: string, newPassword: string): Promise<void> => {
+    if (!currentUser) {
+      throw new Error('No active user session found.');
+    }
+    const res = await apiClient.changePassword(currentUser.id, oldPassword, newPassword);
+    if (!res.success) {
+      throw new Error(res.message || 'Password update failed.');
+    }
+    const updatedProfile: UserProfile = {
+      ...currentUser,
+      mustChangePassword: false
+    };
+    setCurrentUser(updatedProfile);
+    await storageService.hydrateFromBackend().catch((syncErr) => {
+      console.error('[Auth] Post-password-change MySQL bootstrap sync failed:', syncErr);
+    });
   };
 
   const resetPassword = async (email: string): Promise<void> => {
@@ -705,6 +730,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         logout,
+        completePasswordChange,
         resetPassword,
         updateRole,
         switchPersona,

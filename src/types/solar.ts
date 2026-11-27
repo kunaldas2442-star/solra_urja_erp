@@ -31,6 +31,7 @@ export interface UserProfile {
   isFieldWorker?: boolean;
   customerId?: string; // If customer role
   assignedProjects?: string[];
+  mustChangePassword?: boolean;
 }
 
 export type LeadStatus =

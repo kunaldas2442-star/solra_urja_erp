@@ -12,7 +12,6 @@ import { GoogleGenAI } from '@google/genai';
 import { apiRouter, extractSessionToken } from './routes/apiRouter';
 import { dbManager } from './mysqlDatabase';
 import { authService } from './services/authService';
-import { verifyToken } from './services/tokenService';
 
 function cleanEnv(val?: string | null): string {
   if (!val) return '';
@@ -198,15 +197,15 @@ async function createServerApp(httpServer?: http.Server) {
     });
   });
 
-  // DB Status Check (Live MySQL Pool)
+  // DB Status Check (Live MySQL Pool — never expose DB credentials or host/port/user/name)
   app.get(['/api/db', '/api/db.php'], (_req, res) => {
     const status = dbManager.getStatus();
     res.json({
       status: status.connected ? 'ONLINE' : 'OFFLINE',
       ...status,
       message: status.connected
-        ? `Connected to MySQL database "${status.database}" on ${status.host}:${status.port}`
-        : `MySQL database is not reachable on ${status.host}:${status.port}.`
+        ? 'Connected to production MySQL database.'
+        : 'MySQL database is not reachable.'
     });
   });
 
@@ -314,18 +313,14 @@ async function createServerApp(httpServer?: http.Server) {
       return null;
     }
 
-    let user: any = null;
     const pool = dbManager.getPool();
-    if (pool) {
-      const val = await authService.validateSession(pool, token).catch(() => ({ valid: false, user: null }));
-      if (val.valid && val.user) user = val.user;
+    if (!pool || !dbManager.isDbConnected()) {
+      res.status(503).json({ success: false, error: 'Production MySQL database is unavailable.' });
+      return null;
     }
-    if (!user) {
-      const jwtVal = verifyToken(token);
-      if (jwtVal.valid && jwtVal.payload) {
-        user = await dbManager.findUserByIdOrEmail(jwtVal.payload.sub || jwtVal.payload.email).catch(() => null);
-      }
-    }
+    let user: any = null;
+    const val = await authService.validateSession(pool, token).catch(() => ({ valid: false, user: null }));
+    if (val.valid && val.user) user = val.user;
     if (!user) {
       res.status(401).json({ success: false, error: 'Invalid or expired session.' });
       return null;
@@ -831,18 +826,14 @@ async function createServerApp(httpServer?: http.Server) {
       res.status(401).json({ success: false, message: 'Authentication required. Please log in.' });
       return null;
     }
-    let user: any = null;
     const pool = dbManager.getPool();
-    if (pool) {
-      const val = await authService.validateSession(pool, token).catch(() => ({ valid: false, user: null }));
-      if (val.valid && val.user) user = val.user;
+    if (!pool || !dbManager.isDbConnected()) {
+      res.status(503).json({ success: false, message: 'Production MySQL database is unavailable.' });
+      return null;
     }
-    if (!user) {
-      const jwtVal = verifyToken(token);
-      if (jwtVal.valid && jwtVal.payload) {
-        user = await dbManager.findUserByIdOrEmail(jwtVal.payload.sub || jwtVal.payload.email).catch(() => null);
-      }
-    }
+    let user: any = null;
+    const val = await authService.validateSession(pool, token).catch(() => ({ valid: false, user: null }));
+    if (val.valid && val.user) user = val.user;
     if (!user) {
       res.status(401).json({ success: false, message: 'Invalid or expired session.' });
       return null;

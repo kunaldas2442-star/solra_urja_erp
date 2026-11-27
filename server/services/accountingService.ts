@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import type mysql from 'mysql2/promise';
-import { inMemoryDbStore } from '../inMemoryFallback';
 
 const round2 = (n: number): number => Math.round((Number(n) || 0) * 100) / 100;
 
@@ -5531,23 +5530,4 @@ class AccountingService {
   }
 }
 
-const realAccountingService = new AccountingService();
-
-export const accountingService: AccountingService = new Proxy(realAccountingService, {
-  get(target, prop, receiver) {
-    const val = Reflect.get(target, prop, receiver);
-    if (typeof prop === 'string' && typeof val === 'function') {
-      const fallbackFn = (inMemoryDbStore.accounting as any)[prop];
-      if (typeof fallbackFn === 'function') {
-        return (...args: any[]) => {
-          if (!args[0]) {
-            return fallbackFn.apply(inMemoryDbStore.accounting, args);
-          }
-          return val.apply(target, args);
-        };
-      }
-      return val.bind(target);
-    }
-    return val;
-  }
-});
+export const accountingService: AccountingService = new AccountingService();

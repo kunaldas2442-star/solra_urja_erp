@@ -11,6 +11,7 @@ import { EmailDispatchModal } from './components/common/EmailDispatchModal';
 import { ImportExportModal } from './components/common/ImportExportModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LoginView } from './components/auth/LoginView';
+import { ForcePasswordChangeView } from './components/auth/ForcePasswordChangeView';
 import { useWorkforcePresence } from './hooks/useWorkforcePresence';
 import { Sun, AlertTriangle, RefreshCw, X } from 'lucide-react';
 
@@ -243,6 +244,10 @@ const ProtectedApp: React.FC = () => {
 
   if (!isAuthenticated || !currentUser) {
     return <LoginView />;
+  }
+
+  if (currentUser.mustChangePassword) {
+    return <ForcePasswordChangeView />;
   }
 
   return (
