@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { GlobalFooter } from '../layout/GlobalFooter';
 import {
   Lock,
   Mail,
@@ -547,12 +548,8 @@ export const LoginView: React.FC = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="py-4 px-4 text-center text-[11px] text-slate-500 border-t border-slate-200/80 bg-white">
-        <span>Solar Urja ERP • </span>
-        <span className="font-semibold text-[#0F2954]">solar.klyiatechnology.com</span>
-        <span> • Demo Environment</span>
-      </footer>
+      {/* Global Footer */}
+      <GlobalFooter />
 
       {/* Forgot Password Modal */}
       {showForgotModal && (

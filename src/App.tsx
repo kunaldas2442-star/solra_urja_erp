@@ -12,6 +12,7 @@ import { ImportExportModal } from './components/common/ImportExportModal';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LoginView } from './components/auth/LoginView';
 import { ForcePasswordChangeView } from './components/auth/ForcePasswordChangeView';
+import { GlobalFooter } from './components/layout/GlobalFooter';
 import { useWorkforcePresence } from './hooks/useWorkforcePresence';
 import { Sun, AlertTriangle, RefreshCw, X } from 'lucide-react';
 
@@ -141,46 +142,50 @@ const MainLayout: React.FC = () => {
         {/* Desktop Collapsible Navigation Sidebar */}
         <Sidebar isOpen={isMobileMenuOpen} onCloseMobile={() => setIsMobileMenuOpen(false)} />
 
-        {/* Primary Operational Stage Canvas */}
-        <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8 lg:ml-64">
-          {(bootstrapStatus === 'error' || syncError) && (
-            <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-900 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-start gap-2.5 text-xs">
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-bold text-rose-950">MySQL Database Synchronization Alert</p>
-                  <p className="text-rose-800 mt-0.5">{syncError || bootstrapError || 'Unable to synchronize with the production MySQL database.'}</p>
+        {/* Primary Operational Stage Canvas + Shared Global Footer */}
+        <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+          <main className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
+            {(bootstrapStatus === 'error' || syncError) && (
+              <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-900 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-2.5 text-xs">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-rose-950">MySQL Database Synchronization Alert</p>
+                    <p className="text-rose-800 mt-0.5">{syncError || bootstrapError || 'Unable to synchronize with the production MySQL database.'}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleRetrySync}
-                  disabled={isRetryingSync}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isRetryingSync ? 'animate-spin' : ''}`} />
-                  <span>{isRetryingSync ? 'Retrying...' : 'Retry MySQL Sync'}</span>
-                </button>
-                {syncError && bootstrapStatus !== 'error' && (
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     type="button"
-                    onClick={clearSyncError}
-                    className="p-1.5 text-rose-500 hover:text-rose-800 rounded-lg cursor-pointer"
-                    title="Dismiss alert"
+                    onClick={handleRetrySync}
+                    disabled={isRetryingSync}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    <X className="w-4 h-4" />
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRetryingSync ? 'animate-spin' : ''}`} />
+                    <span>{isRetryingSync ? 'Retrying...' : 'Retry MySQL Sync'}</span>
                   </button>
-                )}
+                  {syncError && bootstrapStatus !== 'error' && (
+                    <button
+                      type="button"
+                      onClick={clearSyncError}
+                      className="p-1.5 text-rose-500 hover:text-rose-800 rounded-lg cursor-pointer"
+                      title="Dismiss alert"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               </div>
+            )}
+            <div className="w-full">
+              <Suspense fallback={<ViewLoader />}>
+                {renderActiveView()}
+              </Suspense>
             </div>
-          )}
-          <div className="w-full">
-            <Suspense fallback={<ViewLoader />}>
-              {renderActiveView()}
-            </Suspense>
-          </div>
-        </main>
+          </main>
+
+          <GlobalFooter className="pb-20 lg:pb-0" />
+        </div>
       </div>
 
       {/* Mobile Responsive Bottom Navigation */}
@@ -224,20 +229,23 @@ const ProtectedApp: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-900 px-4">
-        <div className="bg-white border border-slate-200 rounded-2xl px-8 py-6 shadow-sm flex flex-col items-center gap-3 text-center">
-          <img
-            src="/assets/aistudio/solar_urja_logo_07b84efe.jpeg"
-            alt="Solar Urja ERP"
-            className="h-12 w-auto object-contain"
-          />
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-[#F97316] border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-slate-600 font-semibold tracking-wide">
-              Verifying Solar Urja ERP session...
-            </p>
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between text-slate-900">
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="bg-white border border-slate-200 rounded-2xl px-8 py-6 shadow-sm flex flex-col items-center gap-3 text-center">
+            <img
+              src="/assets/aistudio/solar_urja_logo_07b84efe.jpeg"
+              alt="Solar Urja ERP"
+              className="h-12 w-auto object-contain"
+            />
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-[#F97316] border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs text-slate-600 font-semibold tracking-wide">
+                Verifying Solar Urja ERP session...
+              </p>
+            </div>
           </div>
         </div>
+        <GlobalFooter />
       </div>
     );
   }

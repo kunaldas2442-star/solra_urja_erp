@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { GlobalFooter } from '../layout/GlobalFooter';
 import {
   ShieldAlert,
   Lock,
@@ -60,8 +61,9 @@ export const ForcePasswordChangeView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center px-4 py-8 text-slate-900">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between text-slate-900">
+      <div className="flex-1 flex flex-col justify-center items-center px-4 py-8 w-full">
+        <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden">
         <div className="bg-[#0F2954] px-6 py-5 flex items-center justify-between border-b border-slate-200">
           <div className="flex items-center gap-3">
             <img
@@ -195,6 +197,8 @@ export const ForcePasswordChangeView: React.FC = () => {
           </form>
         </div>
       </div>
+      </div>
+      <GlobalFooter />
     </div>
   );
 };
